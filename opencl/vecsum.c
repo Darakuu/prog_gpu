@@ -40,14 +40,31 @@ cl_event vecinit(cl_kernel vecinit_k,
 		vecinit_k(v1, v2, nels, i);
 } */
 
-kernel void vecsum(
-					global int * restrict vsum, 
-					global const int * restrict v1, 
-					global const int * restrict v2, 
-					global int nels)
+cl_event vecsum(
+					cl_kernel vecsum_k,
+					cl_command_queue que,
+					cl_mem d_vsum, 
+					cl_mem d_v1, 
+					cl_mem d_v2, 
+					cl_int nels)
 {
-	const int i = get_global_id(0);
-	vsum[i] = v1[i] + v2[i];
+	const size_t gws[] = {nels};
+	cl_event vecsum_evt;
+	cl_int err;
+
+	cl_uint i = 0;
+	err = clSetKernelArg(vecsum_k, i++, sizeof(d_vsum), &d_vsum);
+	ocl_check(err, "set vecinit arg", i-1);	// non è il massimo...
+	clSetKernelArg(vecsum_k, i++, sizeof(d_v1), &d_v1);
+	ocl_check(err, "set vecinit arg", i-1);
+	clSetKernelArg(vecsum_k, i++, sizeof(d_v2), &d_v2);
+	ocl_check(err, "set vecinit arg", i-1);
+	clSetKernelArg(vecsum_k, i++, sizeof(nels), &nels);
+	ocl_check(err, "set vecinit arg", i-1);
+
+	err = clEnqueueNDRangeKernel(que, vecsum_k, 1, NULL, gws, NULL, 0, NULL, &vecsum_evt);
+	ocl_check(err, "enqueue vecinit");
+	return vecsum_evt;
 }
 
 void verify(const int *vsum, int nels)
