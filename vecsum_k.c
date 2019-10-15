@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void vec_init(int* restrict v1, int* restrict v2, int nels) 
+void vecinit(int* restrict v1, int* restrict v2, int nels) 
 {
 	for(int i = 0; i < nels; ++i)
 	{
@@ -10,16 +10,16 @@ void vec_init(int* restrict v1, int* restrict v2, int nels)
 	}
 }
 
-void vec_sum_k(int * restrict vsum, const int * restrict v1, const int * restrict v2, int nels, int i)
+void vecsum_k(int * restrict vsum, const int * restrict v1, const int * restrict v2, int nels, int i)
 {
 		vsum[i] = v1[i] + v2[i];
 }
 
-void vec_sum(int * restrict vsum, const int * restrict v1, const int * restrict v2, int nels)
+void vecsum(int * restrict vsum, const int * restrict v1, const int * restrict v2, int nels)
 {
 	for(int i = 0; i < nels; ++i)
 	{
-		vec_sum_k(vsum, v1, v2, nels, i);   // Funzione scorporata, consigliabile per i kernel
+		vecsum_k(vsum, v1, v2, nels, i);   // Funzione scorporata, consigliabile per i kernel
 	}
 }
 
@@ -59,8 +59,8 @@ int main(int argc, char*argv[])
 		exit(2);
 	}
 
-	vec_init(v1,v2,nels);
-	vec_sum(vsum, v1,v2,nels);
+	vecinit(v1,v2,nels);
+	vecsum(vsum, v1,v2,nels);
 	verify(vsum,nels);
 	
 	free(vsum);	vsum=NULL;
