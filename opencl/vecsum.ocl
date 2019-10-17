@@ -1,0 +1,12 @@
+kernel void vecinit( global int * restrict v1, global int * restrict v2, int nels)
+{
+	const int i = get_global_id(0);
+	v1[i] = i;
+	v2[i] = nels - i;
+}
+
+kernel void vecsum( global int * restrict vsum, global const int * restrict v1, global const int * restrict v2, int nels)
+{
+	const int i = get_global_id(0);
+	vsum[i] = v1[i] + v2[i];
+}
