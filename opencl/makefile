@@ -1,0 +1,3 @@
+LDLIBS=-lOpenCL
+
+all: vecsum

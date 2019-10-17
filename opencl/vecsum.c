@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler.h"
 
 /*	const int i = get_global_id(0);
@@ -11,10 +12,10 @@
 
 // I kernel restituiscono sempre void
 // Si deve specificare il tipo di memoria, i puntatori di solito risiedono in global memory
-cl_event vecinit(cl_kernel vecinit_k, 
+cl_event vecinit(	cl_kernel vecinit_k, 
 					cl_command_queue que,
-					global cl_mem d_v1, 
-					global cl_mem d_v2, 
+					cl_mem d_v1, 
+					cl_mem d_v2, 
 					cl_int nels)
 {
 	const size_t gws[] = {nels};
@@ -40,13 +41,13 @@ cl_event vecinit(cl_kernel vecinit_k,
 		vecinit_k(v1, v2, nels, i);
 } */
 
-cl_event vecsum(
-					cl_kernel vecsum_k,
+cl_event vecsum(	cl_kernel vecsum_k,
 					cl_command_queue que,
 					cl_mem d_vsum, 
 					cl_mem d_v1, 
 					cl_mem d_v2, 
-					cl_int nels)
+					cl_int nels,
+					cl_event init_evt)
 {
 	const size_t gws[] = {nels};
 	cl_event vecsum_evt;
@@ -62,7 +63,7 @@ cl_event vecsum(
 	clSetKernelArg(vecsum_k, i++, sizeof(nels), &nels);
 	ocl_check(err, "set vecinit arg", i-1);
 
-	err = clEnqueueNDRangeKernel(que, vecsum_k, 1, NULL, gws, NULL, 0, NULL, &vecsum_evt);
+	err = clEnqueueNDRangeKernel(que, vecsum_k, 1, NULL, gws, NULL, 0, &init_evt, &vecsum_evt);	// &init_evt = sto giocando con puntatori/array perché è uno solo
 	ocl_check(err, "enqueue vecinit");
 	return vecsum_evt;
 }
@@ -97,7 +98,7 @@ int main(int argc, char *argv[])
 	cl_context ctx = create_context(plat_id, dev_id);
 	cl_command_queue que = create_queue(ctx, dev_id);
 	cl_program prog = create_program("kernels.ocl", ctx, dev_id);
-	cl_init err;
+	cl_int err;
 
 	cl_kernel vecinit_k = clCreateKernel(prog, "vecinit", &err);
 	ocl_check(err, "create kernel vecinit");
@@ -105,25 +106,25 @@ int main(int argc, char *argv[])
 	ocl_check(err, "create kernel vecsum");
 
 	//	   d_ = per device, sanity naming per il programmatore
-	cl_mem d_v1 = NULL, cl_mem d_v2 = NULL, cl_mem d_vsum = NULL;
+	cl_mem d_v1 = NULL, d_v2 = NULL, d_vsum = NULL;
 
-	d_v1 = cl_CreateBuffer(
+	d_v1 = clCreateBuffer(
 							ctx,										 	// Contesto
-							CL_MEM_READ_WRITE | CL_MEM_HOST_NOACCESS,		// Flags
+							CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS,		// Flags
 							memsize,										// Size
 							NULL,											// 
 							&err);											// Messaggio di errore ritornato
 	ocl_check(err, "create buffer d_v1");
 	
-	d_v2 = cl_CreateBuffer(
+	d_v2 = clCreateBuffer(
 							ctx,										 
-							CL_MEM_READ_WRITE | CL_MEM_HOST_NOACCESS,	
+							CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS,	
 							memsize,									
 							NULL,										
 							&err);
 	ocl_check(err, "create buffer d_v2");
 	
-	d_vsum = cl_CreateBuffer(
+	d_vsum = clCreateBuffer(
 							ctx,										 
 							CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY,	
 							memsize,									
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
 
 	
 
-	if ( !v1 || !v2 || !vsum) 
+	if ( !d_v1 || !d_v2 || !d_vsum) 
 	{
 		fprintf(stderr, "failed to malloc arrays\n");
 		exit(2);
@@ -142,16 +143,30 @@ int main(int argc, char *argv[])
 
 	clock_t start_init, end_init;
 	clock_t start_sum, end_sum;
+	cl_event init_evt, sum_evt, read_evt;
 
 	start_init = clock();
-	vecinit(vecinit_k, que ,d_v1, d_v2, nels);
+	init_evt = vecinit(vecinit_k, que ,d_v1, d_v2, nels);
 	end_init = clock();
 
 	start_sum = clock();
-	vecsum(vecinit_k, que ,d_v1, d_v2, nels);
+	sum_evt = vecsum(vecinit_k, que, d_vsum, d_v1, d_v2, nels, init_evt);
 	end_sum = clock();
 
-	verify(vsum, nels);
+	//	clFinish() 						Aspetta che tutti i comandi hanno finito, brutale punto di sincronizzazione. E' bloccante.
+	//	clFlush()						Non è un punto di sincronizzazione, ma garantisce solo che la GPU abbia ricevuto tutti i comandi.
+	//	clWaitForEvents(1, &sum_evt); 	Garanzia che vecsum ha concluso l'operazione
+
+	int *h_vsum=malloc(memsize);
+	if(!h_vsum) ocl_check(CL_OUT_OF_HOST_MEMORY, "alloc vsum host");
+
+	err = clEnqueueReadBuffer(que, d_vsum, CL_FALSE, 0, memsize, h_vsum, 1, &sum_evt, &read_evt);
+	//					command_queue, buffer, blocking?, offset, size, puntatore, eventi in lista, lista di eventi, evento nuovo)
+	ocl_check(err, "read buffer vsum");
+	
+	clWaitForEvents(1, &read_evt);	// Garanzia che vecsum ha concluso l'operazione
+
+	//verify(d_vsum, nels);
 
 	double runtime_init_ms = (end_init - start_init)*1.0e3/CLOCKS_PER_SEC;
 	double runtime_sum_ms = (end_sum - start_sum)*1.0e3/CLOCKS_PER_SEC;
@@ -163,7 +178,14 @@ int main(int argc, char *argv[])
 	printf("sum : %d int in %gms: %g GB/s\n",
 		nels, runtime_sum_ms, sum_bw_gbs);
 
-	free(vsum); vsum = NULL;
-	free(v2); v2 = NULL;
-	free(v1); v1 = NULL;
+	free(h_vsum); 	h_vsum = NULL;
+	// così o fai exit();
+	clReleaseMemObject(d_vsum);		// Per i buffer.
+	clReleaseMemObject(d_v1);		// Esistono i buffer classici (blocco contiguo indicizzato di memoria)
+	clReleaseMemObject(d_v2);		// Oppure le 'immagini' (strutture opache, nella grafica sono usate come texture)
+	clReleaseKernel(vecsum_k);		
+	clReleaseKernel(vecinit_k);		
+	clReleaseProgram(prog); 		
+	clReleaseCommandQueue(que);		
+	clReleaseContext(ctx);				
 }
