@@ -21,7 +21,7 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 	ocl_check(err, "set vecinit arg_2", i-1);
 	err = clSetKernelArg(vecinit_k, i++, sizeof(nels), &nels);
 	ocl_check(err, "set vecinit arg_3", i-1);
-
+	
 	err = clEnqueueNDRangeKernel(que, vecinit_k, 1, NULL, gws, NULL, 0, NULL, &vecinit_evt);
 	ocl_check(err, "enqueue vecinit");
 	return vecinit_evt;
@@ -44,10 +44,13 @@ cl_event vecsum(cl_kernel vecsum_k, cl_command_queue que,
 	err = clSetKernelArg(vecsum_k, i++, sizeof(nels), &nels);
 	ocl_check(err, "set vecsum arg_4", i-1);
 
-	err = clEnqueueNDRangeKernel(que, vecsum_k, 1, NULL, gws, NULL, 0, &init_evt, &vecsum_evt);	// &init_evt = sto giocando con puntatori/array perché è uno solo
+	err = clEnqueueNDRangeKernel(que, vecsum_k, 1, NULL, gws, NULL, 1, &init_evt, &vecsum_evt);	// &init_evt = sto giocando con puntatori/array perché è uno solo
 	ocl_check(err, "enqueue vecsum");
 	return vecsum_evt;
 }
+
+
+
 
 void verify(const int *vsum, int nels)
 {
@@ -93,7 +96,7 @@ int main(int argc, char *argv[])
 							ctx,										 	// Contesto
 							CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS,		// Flags
 							memsize,										// Size
-							NULL,											// 
+							NULL,											// Puntatore all'host
 							&err);											// Messaggio di errore ritornato
 	ocl_check(err, "create buffer d_v1");
 	
@@ -148,12 +151,12 @@ int main(int argc, char *argv[])
 	const double sum_bw_gbs = 3.0*memsize/1.0e6/runtime_sum_ms;
 	const double read_bw_gbs = memsize/1.0e6/runtime_read_ms;
 
-	printf("init: %d int in %gms: %g GB/s\n",
-		nels, runtime_init_ms, init_bw_gbs);
-	printf("sum : %d int in %gms: %g GB/s\n",
-		nels, runtime_sum_ms, sum_bw_gbs);
-	printf("read : %d int in %gms: %g GB/s\n",
-		nels, runtime_read_ms, read_bw_gbs);
+	printf("init: %d int in %gms: %g GB/s %g GE/s\n",
+		nels, runtime_init_ms, init_bw_gbs, nels/1.0e6/runtime_init_ms);
+	printf("sum : %d int in %gms: %g GB/s %g GE/s\n",
+		nels, runtime_sum_ms, sum_bw_gbs,nels/1.0e6/runtime_sum_ms);
+	printf("read : %d int in %gms: %g GB/s %g GE/s\n",
+		nels, runtime_read_ms, read_bw_gbs,nels/1.0e6/runtime_read_ms);
 
 	free(h_vsum); 	h_vsum = NULL;
 
