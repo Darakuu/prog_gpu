@@ -2,7 +2,7 @@ kernel void vecinit( global int * restrict v1, global int * restrict v2, int nel
 {
 	const int i = get_global_id(0);
 	
-    //if(i>=nels)     return; //workitem di troppo ritornano subito, ma con gestione manuale dopo...
+    if(i>=nels)     return; //workitem di troppo ritornano subito, ma con gestione manuale dopo...
 
     v1[i] = i;
 	v2[i] = nels - i;
@@ -12,7 +12,7 @@ kernel void vecsum( global int * restrict vsum, global const int * restrict v1, 
 {
 	const int i = get_global_id(0);
 
-    //if( i>=nels)    return;
+    if( i>=nels)    return;
 
 	vsum[i] = v1[i] + v2[i];
 }

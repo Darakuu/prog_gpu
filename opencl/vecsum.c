@@ -10,7 +10,12 @@
 cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, 
 				 cl_mem d_v1,  cl_mem d_v2, cl_int nels)
 {
-	const size_t gws[] = {nels};
+	// Divisione intera tra due numeri arrotondando per eccesso: (a+b-1)/b => *b arrotonda al multiplo più vicino
+
+
+	static const size_t gws_align = 1024; 					// Allineamento del global work size | TODO: Sostituire con un valore determinato meglio
+	const size_t gws[] = {round_mul_up(nels,gws_align)};	// Sarà sempre un multiplo di gws_align
+	
 	cl_event vecinit_evt;
 	cl_int err;
 
@@ -30,7 +35,9 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 cl_event vecsum(cl_kernel vecsum_k, cl_command_queue que, 
 				cl_mem d_vsum, cl_mem d_v1, cl_mem d_v2, cl_int nels, cl_event init_evt)
 {
-	const size_t gws[] = {nels};
+	static const size_t gws_align = 1024; 					// Allineamento del global work size
+	const size_t gws[] = {round_mul_up(nels,gws_align)};	// Sarà sempre un multiplo di gws_align
+
 	cl_event vecsum_evt;
 	cl_int err;
 
