@@ -5,6 +5,9 @@
 #define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler.h"
 
+size_t gws_align_init;		// Struct per fare le cose meglio
+size_t gws_align_sum;		// global variables bad
+
 // I kernel restituiscono sempre void
 // Si deve specificare il tipo di memoria, i puntatori di solito risiedono in global memory
 cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, 
@@ -13,19 +16,20 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 	// Divisione intera tra due numeri arrotondando per eccesso: (a+b-1)/b => *b arrotonda al multiplo più vicino
 
 
-	static const size_t gws_align = 1024; 					// Allineamento del global work size | TODO: Sostituire con un valore determinato meglio
-	const size_t gws[] = {round_mul_up(nels,gws_align)};	// Sarà sempre un multiplo di gws_align
+	//static const size_t gws_align = 1024; 						// Allineamento del global work size
+	const size_t gws[] = {round_mul_up(nels,gws_align_init)};	// Sarà sempre un multiplo di gws_align
+	printf("init gws: %d | %zu = %zu\n",nels, gws_align_init, gws[0]);
 	
 	cl_event vecinit_evt;
 	cl_int err;
 
 	cl_uint i = 0;	//0, 1, 2 v
 	err = clSetKernelArg(vecinit_k, i++, sizeof(d_v1), &d_v1);
-	ocl_check(err, "set vecinit arg_1", i-1);	// non è il massimo...
+	ocl_check(err, "set vecinit arg_dv1", i-1);	// non è il massimo...
 	err = clSetKernelArg(vecinit_k, i++, sizeof(d_v2), &d_v2);
-	ocl_check(err, "set vecinit arg_2", i-1);
+	ocl_check(err, "set vecinit arg_dv2", i-1);
 	err = clSetKernelArg(vecinit_k, i++, sizeof(nels), &nels);
-	ocl_check(err, "set vecinit arg_3", i-1);
+	ocl_check(err, "set vecinit arg_nels", i-1);
 	
 	err = clEnqueueNDRangeKernel(que, vecinit_k, 1, NULL, gws, NULL, 0, NULL, &vecinit_evt);
 	ocl_check(err, "enqueue vecinit");
@@ -35,21 +39,22 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 cl_event vecsum(cl_kernel vecsum_k, cl_command_queue que, 
 				cl_mem d_vsum, cl_mem d_v1, cl_mem d_v2, cl_int nels, cl_event init_evt)
 {
-	static const size_t gws_align = 1024; 					// Allineamento del global work size
-	const size_t gws[] = {round_mul_up(nels,gws_align)};	// Sarà sempre un multiplo di gws_align
+	//static const size_t gws_align = 1024; 					// Allineamento del global work size
+	const size_t gws[] = {round_mul_up(nels,gws_align_sum)};	// Sarà sempre un multiplo di gws_align
+	printf("sum gws: %d | %zu = %zu\n",nels, gws_align_sum, gws[0]);
 
 	cl_event vecsum_evt;
 	cl_int err;
 
 	cl_uint i = 0;
 	err = clSetKernelArg(vecsum_k, i++, sizeof(d_vsum), &d_vsum);
-	ocl_check(err, "set vecsum arg_1", i-1);	// non è il massimo...
+	ocl_check(err, "set vecsum arg_dvsum", i-1);	// non è il massimo...
 	err = clSetKernelArg(vecsum_k, i++, sizeof(d_v1), &d_v1);
-	ocl_check(err, "set vecsum arg_2", i-1);
+	ocl_check(err, "set vecsum arg_dv1", i-1);
 	err = clSetKernelArg(vecsum_k, i++, sizeof(d_v2), &d_v2);
-	ocl_check(err, "set vecsum arg_3", i-1);
+	ocl_check(err, "set vecsum arg_dv2", i-1);
 	err = clSetKernelArg(vecsum_k, i++, sizeof(nels), &nels);
-	ocl_check(err, "set vecsum arg_4", i-1);
+	ocl_check(err, "set vecsum arg_nels", i-1);
 
 	err = clEnqueueNDRangeKernel(que, vecsum_k, 1, NULL, gws, NULL, 1, &init_evt, &vecsum_evt);	// &init_evt = sto giocando con puntatori/array perché è uno solo
 	ocl_check(err, "enqueue vecsum");
@@ -95,6 +100,11 @@ int main(int argc, char *argv[])
 	ocl_check(err, "create kernel vecinit");
 	cl_kernel vecsum_k = clCreateKernel(prog, "vecsum", &err);
 	ocl_check(err, "create kernel vecsum");
+
+	err = clGetKernelWorkGroupInfo(vecinit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(gws_align_init), &gws_align_init, NULL);
+	ocl_check(err, "Preferred wg multiple for init");
+	err = clGetKernelWorkGroupInfo(vecsum_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(gws_align_sum), &gws_align_sum, NULL);
+	ocl_check(err, "Preferred wg multiple for sum");
 
 	//	   d_ = per device, sanity naming per il programmatore
 	cl_mem d_v1 = NULL, d_v2 = NULL, d_vsum = NULL;
