@@ -83,3 +83,37 @@ kernel void vecsum4x2( global int4 * restrict vsum, global const int4 * restrict
 
 	//TODO ...
 }
+
+kernel void vecsmooth(global int * restrict s, global const int * restrict v, int nels)
+{
+	const int i = get_global_id(0);
+
+	if (i >= nels) return;
+
+	int v1 = 0, v2 = v[i], v3 = 0;
+	int c = 1;
+	if (i > 0)
+	{
+		v1 = v[i-1];
+		++c;
+	}
+	if(i+1 < nels)
+	{
+		v3 = v[i+1];
+		++c;
+	}
+	s[i] = (v1+v2+v3)/c;
+
+/* Modo brutto brutto di fare le cose: 
+	// Se non altro non crashamo così
+	// Objectively bad	
+	if (nels == 1)
+		s[i] = v[1];
+	else if (i == 0)
+		s[i] = (v[i] + v[i+1])/2;
+	else if(i == nels-1)
+		s[i] = (v[i] + v[i-1])/2;
+	else
+		s[i] = (v[i-1] + v[i] + v[i+1])/3;
+*/
+}
