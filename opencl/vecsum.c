@@ -149,19 +149,29 @@ int main(int argc, char *argv[])
 	//	clFlush()						Non è un punto di sincronizzazione, ma garantisce solo che la GPU abbia ricevuto tutti i comandi.
 	//	clWaitForEvents(1, &sum_evt); 	Garanzia che vecsum ha concluso l'operazione
 
-	int *h_vsum=malloc(memsize);
+
+#if 0
+	Vecchio(e lento) modo di fare le cose con ReadBuffer:
+	int *h_vsum=malloc(memsize);	// Copia estremamente dispendiosa
 	if(!h_vsum) ocl_check(CL_OUT_OF_HOST_MEMORY, "alloc vsum host");
 
+	//ReadBuffer = Copia (in modo opaco) i dati
+	//MapBuffer  = Rende accessibili i contenuti del buffer all'host. Comando ASINCRONO (serve coda).
+	
 	err = clEnqueueReadBuffer(que, d_vsum, CL_FALSE, 0, memsize, h_vsum, 1, &sum_evt, &read_evt);
 	//					command_queue, buffer, blocking?, offset, size, puntatore, eventi in lista, lista di eventi, evento nuovo)
 	ocl_check(err, "read buffer vsum");
-	
+#else
+	//Rende visibile all'host (CPU) il contenuto di un buffer
+	cl_int * h_vsum = clEnqueueMapBuffer(que,d_vsum,CL_FALSE,CL_MAP_READ,							// Non eseguire mai kernel mentre il buffer è mappato, undefined behaviour, 
+										0,memsize,1,&sum_evt, &read_evt /*"Map_Event"!*/, &err);	// idem se mappo su un readbuffer
+#endif
 	clWaitForEvents(1, &read_evt);	// Garanzia che vecsum ha concluso l'operazione
 
 	verify(h_vsum, nels);
 
 	const double runtime_init_ms = runtime_ms(init_evt);
-	const double runtime_sum_ms = runtime_ms(sum_evt);
+	const double runtime_sum_ms  = runtime_ms(sum_evt );
 	const double runtime_read_ms = runtime_ms(read_evt);
 
 	const double init_bw_gbs = 2.0*memsize/1.0e6/runtime_init_ms;
@@ -175,8 +185,8 @@ int main(int argc, char *argv[])
 	printf("read : %d int in %gms: %g GB/s %g GE/s\n",
 		nels, runtime_read_ms, read_bw_gbs,nels/1.0e6/runtime_read_ms);
 
-	free(h_vsum); 	h_vsum = NULL;
-
+	//	free(h_vsum); 	h_vsum = NULL; Con MapBuffer non si può più fare free 
+	err = clEnqueueUnmapMemObject(que,d_vsum,h_vsum,0,NULL,NULL);				
 	// così o fai exit();
 	clReleaseMemObject(d_vsum);		// Per i buffer.
 	clReleaseMemObject(d_v1);		// Esistono i buffer classici (blocco contiguo indicizzato di memoria)
