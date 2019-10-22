@@ -2,17 +2,38 @@ kernel void vecinit( global int * restrict v1, global int * restrict v2, int nel
 {
 	const int i = get_global_id(0);
 	
-    if(i>=nels)     return; //workitem di troppo ritornano subito, ma con gestione manuale dopo...
+    if(i>=nels)  return; //workitem di troppo ritornano subito, ma con gestione manuale dopo...
 
     v1[i] = i;
 	v2[i] = nels - i;
 }
 
+// Performance normale
 kernel void vecsum( global int * restrict vsum, global const int * restrict v1, global const int * restrict v2, int nels)
 {
 	const int i = get_global_id(0);
 
-    if( i>=nels)    return;
+    if(i>=nels)  return;
+
+	vsum[i] = v1[i] + v2[i];
+}
+
+// Il migliore
+kernel void vecsum4( global int4 * restrict vsum, global const int4 * restrict v1, global const int4 * restrict v2, int nquarts)
+{	// Funziona meglio anche se hardware di calcolo è scalare perché il controller di memoria è fatto per Float4 (quindi codice vettorizzato)
+	const int i = get_global_id(0);
+
+    if(i>=nquarts)  return;
+
+	vsum[i] = v1[i] + v2[i];
+}
+
+// Peggiore di 4
+kernel void vecsum8( global int8 * restrict vsum, global const int8 * restrict v1, global const int8 * restrict v2, int noct)
+{
+	const int i = get_global_id(0);
+
+    if(i>=noct)  return;
 
 	vsum[i] = v1[i] + v2[i];
 }

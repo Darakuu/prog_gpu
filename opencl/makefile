@@ -1,3 +1,3 @@
 LDLIBS=-lOpenCL
 
-all: vecsum
+all: vecsum vecsum4 vecsum8
