@@ -125,9 +125,10 @@ int main(int argc, char *argv[])
 							&err);
 	ocl_check(err, "create buffer d_v2");
 	
+	// Sappiamo che leggeremo i dati tramite map
 	d_vsum = clCreateBuffer(
 							ctx,										 
-							CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY,	
+							CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR,	
 							memsize,									
 							NULL,										
 							&err);
