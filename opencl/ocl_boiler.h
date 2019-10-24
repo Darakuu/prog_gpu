@@ -229,7 +229,10 @@ double runtime_ms(cl_event evt)
 }
 
 
-/* round gws to the next multiple of lws */
+/** 
+ * 	round gws to the next multiple of lws
+ * 	((gws+lws-1)/lws) * lws rounds to the next multiple of lws
+*/
 size_t round_mul_up(size_t gws, size_t lws)
 {
 	return ((gws + lws - 1)/lws)*lws;
