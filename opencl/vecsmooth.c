@@ -5,8 +5,8 @@
 #define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler.h"
 
-size_t gws_align_init;	// Struct per fare le cose meglio
-size_t gws_align_smooth;		// global variables bad
+size_t gws_align_init;
+size_t gws_align_smooth;		
 
 // I kernel restituiscono sempre void
 // Si deve specificare il tipo di memoria, i puntatori di solito risiedono in global memory
@@ -31,23 +31,21 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 	return vecinit_evt;
 }
 
-cl_event vecsmooth(cl_kernel vecsmooth_k, cl_command_queue que, 
-				cl_mem d_vsmooth, cl_mem d_v1, cl_int nels, cl_event init_evt)
+cl_event vecsmooth(cl_kernel vecsmooth_k, cl_command_queue que,
+	cl_mem d_vsmooth, cl_mem d_v1, cl_int nels, cl_event init_evt)
 {
-  // Allineamento del global work size
-	const size_t gws[] = {round_mul_up(nels,gws_align_smooth)};  			// Sarà sempre un multiplo di gws_align
-	printf("smooth gws: %d | %zu = %zu\n",nels, gws_align_smooth, gws[0]);
-
+	const size_t gws[] = { round_mul_up(nels, gws_align_smooth) };
+	printf("smooth gws: %d | %zu = %zu\n", nels, gws_align_smooth, gws[0]);
 	cl_event vecsmooth_evt;
 	cl_int err;
 
 	cl_uint i = 0;
 	err = clSetKernelArg(vecsmooth_k, i++, sizeof(d_vsmooth), &d_vsmooth);
-	ocl_check(err, "set vecsmooth arg_dvsmooth", i-1);
+	ocl_check(err, "set vecsmooth arg", i-1);
 	err = clSetKernelArg(vecsmooth_k, i++, sizeof(d_v1), &d_v1);
-	ocl_check(err, "set vecsmooth arg_dv1", i-1);
+	ocl_check(err, "set vecsmooth arg", i-1);
 	err = clSetKernelArg(vecsmooth_k, i++, sizeof(nels), &nels);
-	ocl_check(err, "set vecsmooth arg_nels", i-1);
+	ocl_check(err, "set vecsmooth arg", i-1);
 
 	err = clEnqueueNDRangeKernel(que, vecsmooth_k, 1, NULL, gws, NULL, 1, &init_evt, &vecsmooth_evt);
 	ocl_check(err, "enqueue vecsmooth");
@@ -56,15 +54,16 @@ cl_event vecsmooth(cl_kernel vecsmooth_k, cl_command_queue que,
 
 void verify(const int *vsmooth, int nels)
 {
-	for (int i = 0; i < nels; ++i)
-  {
-    int target = 1 == nels -1 ? i - 1 : 1;
-        if (vsmooth[i] != i) 
-        {
-            fprintf(stderr, "mismatch @ %d : %d != %d\n", i, vsmooth[i], nels);
-            exit(3);
-        }
-  }
+	for (int i = 0; i < nels; ++i) 
+	{
+		int target = i == nels - 1 ? i - 1 : i;
+		if (vsmooth[i] != target) 
+		{
+			fprintf(stderr, "mismatch @ %d : %d != %d\n",
+				i, vsmooth[i], target);
+			exit(3);
+		}
+	}
 }
 
 int main(int argc, char *argv[])
