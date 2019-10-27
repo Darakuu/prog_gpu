@@ -3,10 +3,10 @@ LDLIBS=-lOpenCL
 CEXT=.c
 OEXT=.out
 
-all: vecsum$(CEXT) vecsum4$(CEXT) vecsum8$(CEXT)
+all: vecsum$(CEXT) vecsum4$(CEXT) vecsum8$(CEXT) vecsum4by4$(CEXT) vecsum4by2$(CEXT) vecsmooth$(CEXT)
 	$(CC) vecsum$(CEXT) $(LDLIBS) -o vecsum$(OEXT)
 	$(CC) vecsum4$(CEXT) $(LDLIBS) -o vecsum4$(OEXT)
 	$(CC) vecsum8$(CEXT) $(LDLIBS) -o vecsum8$(OEXT)
 	$(CC) vecsum4by4$(CEXT) $(LDLIBS) -o vecsum4by4$(OEXT)
-	$(CC) vecsum4by2$(CEXT) $(LDLIBS) -o vecsum4by4$(OEXT)
+	$(CC) vecsum4by2$(CEXT) $(LDLIBS) -o vecsum4by2$(OEXT)
 	$(CC) vecsmooth$(CEXT) $(LDLIBS) -o vecsmooth$(OEXT)
