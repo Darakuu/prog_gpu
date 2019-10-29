@@ -8,33 +8,32 @@
 size_t gws_align_init;
 size_t gws_align_smooth;		
 
-// I kernel restituiscono sempre void
-// Si deve specificare il tipo di memoria, i puntatori di solito risiedono in global memory
-cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, 
+cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, cl_int lws_cli, 
 				 cl_mem d_v1, cl_int nels)
 {
-	// Allineamento del global work size
-	const size_t gws[] = {round_mul_up(nels,gws_align_init)};  			// Sarà sempre un multiplo di gws_align
+	const size_t lws[] = { lws_cli };
+	const size_t gws[] = {round_mul_up(nels,lws_cli ? lws[0] : gws_align_init)};  			// Sarà sempre un multiplo del local work size, se specificato
 	printf("init gws: %d | %zu = %zu\n",nels, gws_align_init, gws[0]);
 	
 	cl_event vecinit_evt;
 	cl_int err;
 
-	cl_uint i = 0;	//0, 1, 2 v
+	cl_uint i = 0;
 	err = clSetKernelArg(vecinit_k, i++, sizeof(d_v1), &d_v1);
 	ocl_check(err, "set vecinit arg_dv1", i-1);
 	err = clSetKernelArg(vecinit_k, i++, sizeof(nels), &nels);
 	ocl_check(err, "set vecinit arg_nels", i-1);
 	
-	err = clEnqueueNDRangeKernel(que, vecinit_k, 1, NULL, gws, NULL, 0, NULL, &vecinit_evt);
+	err = clEnqueueNDRangeKernel(que, vecinit_k, 1, NULL, gws, (lws_cli ? lws : NULL), 0, NULL, &vecinit_evt);
 	ocl_check(err, "enqueue vecinit");
 	return vecinit_evt;
 }
 
-cl_event vecsmooth(cl_kernel vecsmooth_k, cl_command_queue que,
+cl_event vecsmooth(cl_kernel vecsmooth_k, cl_command_queue que, cl_int lws_cli,
 	cl_mem d_vsmooth, cl_mem d_v1, cl_int nels, cl_event init_evt)
 {
-	const size_t gws[] = { round_mul_up(nels, gws_align_smooth) };
+	const size_t lws[] = { lws_cli };
+	const size_t gws[] = {round_mul_up(nels,lws_cli ? lws[0] : gws_align_smooth)};
 	printf("smooth gws: %d | %zu = %zu\n", nels, gws_align_smooth, gws[0]);
 	cl_event vecsmooth_evt;
 	cl_int err;
@@ -47,7 +46,7 @@ cl_event vecsmooth(cl_kernel vecsmooth_k, cl_command_queue que,
 	err = clSetKernelArg(vecsmooth_k, i++, sizeof(nels), &nels);
 	ocl_check(err, "set vecsmooth arg", i-1);
 
-	err = clEnqueueNDRangeKernel(que, vecsmooth_k, 1, NULL, gws, NULL, 1, &init_evt, &vecsmooth_evt);
+	err = clEnqueueNDRangeKernel(que, vecsmooth_k, 1, NULL, gws, (lws_cli ? lws : NULL), 1, &init_evt, &vecsmooth_evt);
 	ocl_check(err, "enqueue vecsmooth");
 	return vecsmooth_evt;
 }
@@ -75,10 +74,10 @@ int main(int argc, char *argv[])
 	}
 
 	const int nels = atoi(argv[1]);
-	const size_t memsize = nels*sizeof(cl_int);	
-	// su device è signed int (con complemento a due)
-	// su host è definito il cl_int, garantito che sia identico a quello del device (entro certi limiti)
-	
+	const size_t memsize = nels*sizeof(cl_int);
+
+	const int lws = argc > 2 ? atoi(argv[2] ) : 0; //specifico anche local work size
+
   cl_platform_id plat_id = select_platform();
 	cl_device_id dev_id = select_device(plat_id);
 	cl_context ctx = create_context(plat_id, dev_id);
@@ -113,11 +112,11 @@ int main(int argc, char *argv[])
 	cl_event init_evt, smooth_evt, read_evt;
 
 	start_init = clock();
-	init_evt = vecinit(vecinit_k, que, d_v1, nels);
+	init_evt = vecinit(vecinit_k, que, lws, d_v1, nels);
 	end_init = clock();
 
 	start_smooth = clock();
-	smooth_evt = vecsmooth(vecsmooth_k, que, d_vsmooth, d_v1, nels, init_evt);
+	smooth_evt = vecsmooth(vecsmooth_k, que, lws, d_vsmooth, d_v1, nels, init_evt);
 	end_smooth = clock();
 
 	// Rende visibile all'host (CPU) il contenuto di un buffer
