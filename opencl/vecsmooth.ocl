@@ -25,29 +25,31 @@ kernel void vecsmooth(global int * restrict s, global const int * restrict v, in
 }
 
 
-kernel void vecsmooth_lmem(global int * restrict s, global const int * restrict v, local int *cache, int nels)
+kernel void vecsmooth_lmem(global int * restrict s, global const int * restrict v, local volatile int *cache, int nels)
 {
 	const int gi = get_global_id(0);	// "global index"
 	const int li = get_local_id(0);		// "local index"
 	if (gi >= nels) return;
 	// Oltre a leggere il proprio elemento, lo mette anche in cache
 	int v1 = 0, v2 = v[gi], v3=0;
-	int c1 = 1;
+	int c = 1;
 	/*Caricamento dati da gmem a lmem */
-	// Cache dimensionata come get_local_size(0)
-	cache[li] = v2;
+	// Cache dimensionata come get_local_size(0)+2
+	cache[li+1] = v2;
+	if (li==0 && gi>0)	cache[0] = v[gi-1];
+	if ((li==get_local_size(0)-1) && (gi+1 < nels)) cache[li+2] = v[gi+1];
 
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	/*Media dei dati leggendoli dalla lmem invece che dalla gmem */
 	if (gi > 0) 
   {
-		v1 = li > 0 ? cache[li-1] : v[gi-1]	// elemento precedente, con safeguard per assicurarsi che ha un precedente
+		v1 = cache[li];
 		++c;
 	}
 	if (gi + 1 < nels) 
   {
-		v3 = (li < get_local_size(0)-1 ? cache[li+1] : v[gi+1])	// elemento successivo con safeguard per assicurarsi che ha un successivo
+		v3 = cache[li+2];
 		++c;
 	}
 	s[gi] = (v1+v2+v3)/c;
