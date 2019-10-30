@@ -107,20 +107,12 @@ int main(int argc, char *argv[])
 	d_vsmooth = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_vsmooth");
 
-	clock_t start_init, end_init;
-	clock_t start_smooth, end_smooth;
 	cl_event init_evt, smooth_evt, read_evt;
 
-	start_init = clock();
 	init_evt = vecinit(vecinit_k, que, lws, d_v1, nels);
-	end_init = clock();
-
-	start_smooth = clock();
+	
 	smooth_evt = vecsmooth(vecsmooth_k, que, lws, d_vsmooth, d_v1, nels, init_evt);
-	end_smooth = clock();
-
-	// Rende visibile all'host (CPU) il contenuto di un buffer
-  // Non eseguire mai kernel mentre il buffer è mappato, undefined behaviour, idem se mappo su un ReadBuffer.
+	
 	cl_int * h_vsmooth = clEnqueueMapBuffer(que,d_vsmooth,CL_FALSE,CL_MAP_READ, 0,memsize,1,&smooth_evt, &read_evt , &err);
 	clWaitForEvents(1, &read_evt);	// Garanzia che vecsmooth ha concluso l'operazione
 	verify(h_vsmooth, nels);
@@ -141,6 +133,7 @@ int main(int argc, char *argv[])
 		nels, runtime_read_ms, read_bw_gbs,nels/1.0e6/runtime_read_ms);
 
 	err = clEnqueueUnmapMemObject(que,d_vsmooth,h_vsmooth,0,NULL,NULL);
+	ocl_check(err, "unmap vsmooth");
   clReleaseMemObject(d_vsmooth);		// Rilascio per i buffer openCL, in questo caso blocchi contigui di memoria.
 	clReleaseMemObject(d_v1);
 	clReleaseKernel(vecsmooth_k);		
