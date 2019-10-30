@@ -1,4 +1,7 @@
 # prog_gpu
-Corso di Programmazione Parallela su Architettura GPU, @UNICT
+Parallel Programming on GPU Architectures (GPGPU) @UNICT-DMI
 
-Repository personale di appunti e sperimentazione personale.
+Personal repository for code wrote during lectures or personal development / experimentation.
+Code quality is subpar!!
+
+Most comments in code are currently in Italian. (Google translate should do the job fine though, if interested).
