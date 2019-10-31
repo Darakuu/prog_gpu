@@ -4,7 +4,7 @@ CEXT=.c
 OEXT=.out
 
 TARGETS= vecsum$(CEXT) vecsum4$(CEXT) vecsum8$(CEXT) vecsum4by4$(CEXT) vecsum4by2$(CEXT) vecsmooth$(CEXT)
-TARGETS+= vecsmooth_lmem$(CEXT) 
+TARGETS+= vecsmooth_lmem$(CEXT) vecsmooth_v4$(CEXT) 
 
 
 all: $(TARGETS)
@@ -14,4 +14,5 @@ all: $(TARGETS)
 	$(CC) vecsum4by4$(CEXT) $(LDLIBS) -o vecsum4by4$(OEXT)
 	$(CC) vecsum4by2$(CEXT) $(LDLIBS) -o vecsum4by2$(OEXT)
 	$(CC) vecsmooth$(CEXT) $(LDLIBS) -o vecsmooth$(OEXT)
+	$(CC) vecsmooth_v4$(CEXT) $(LDLIBS) -o vecsmooth_v4$(OEXT)
 	$(CC) vecsmooth_lmem$(CEXT) $(LDLIBS) -o vecsmooth_lmem$(OEXT)

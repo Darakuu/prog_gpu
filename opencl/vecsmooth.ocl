@@ -24,6 +24,40 @@ kernel void vecsmooth(global int * restrict s, global const int * restrict v, in
 	s[i] = (v1+v2+v3)/c;
 }
 
+// Vettorizzazione a quattro: Smoothing di 4 elementi consecutivi per work-item
+kernel void vecsmooth_v4(global int4 * restrict s, global const int4 * restrict v, int nquarts)
+{
+	const int i = get_global_id(0);
+	if (i >= nquarts) return;
+	int4 v1 = (int4)(0), v2 = v[i], v3=(int4)(0);
+	int4 c = (int4)(2,3,3,2);
+  
+	if (i>0)
+	{
+		v1.s0 = v[i-1].s3;	// Siamo senza lmem.
+		c.s0++;
+	}
+	if (i<nquarts-1)
+	{
+		v3.s3 = v[i+1].s0;	// Prima componente della quartina corrispondente al work-item successivo all'i-esimo.
+		c.s3++;
+	}
+	v1.s123 = v2.s012;
+	v3.s012 = v2.s123;
+	
+	s[i] = (v1+v2+v3)/c;	// Componente per componente
+
+
+	/*	Altre modalità di accesso:
+		v1.s1 = v2.s0;
+		v1.s2 = v2.s1;	// seconda comp. di v1  = prima comp. di v2
+		v1.s3 = v2.s2;
+		v1.lo; v1.hi;
+		vi.odd; v1.even
+		v1.s01 = v2.s22 // replica 0 e 1 in 2
+	*/
+}
+
 
 kernel void vecsmooth_lmem(global int * restrict s, global const int * restrict v, local volatile int *cache, int nels)
 {
@@ -31,8 +65,9 @@ kernel void vecsmooth_lmem(global int * restrict s, global const int * restrict 
 	const int li = get_local_id(0);		// "local index"
 	if (gi >= nels) return;
 	// Oltre a leggere il proprio elemento, lo mette anche in cache
-	int v1 = 0, v2 = v[gi], v3=0;
+	int v1 = 0, v2 = v[gi], v3 = 0;
 	int c = 1;
+	
 	/*Caricamento dati da gmem a lmem */
 	// Cache dimensionata come get_local_size(0)+2
 	cache[li+1] = v2;
@@ -54,4 +89,9 @@ kernel void vecsmooth_lmem(global int * restrict s, global const int * restrict 
 	}
 	s[gi] = (v1+v2+v3)/c;
 
+}
+
+kernel void vecsmooth_lmem4(global int4 * restrict s, global const int* restrict v, local volatile int4 *cache, int nquarts)
+{
+	// TODO: Versione vettorizzata
 }
