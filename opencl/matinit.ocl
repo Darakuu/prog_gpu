@@ -1,0 +1,8 @@
+kernel void matinit(global int *A, int nrows, int ncols) //launch grid 2D
+{
+  int r = get_global_id(0);
+  int c = get_global_id(1);
+
+  A[r*ncols+c] = r-c;   // matrice simmetrica
+
+}
