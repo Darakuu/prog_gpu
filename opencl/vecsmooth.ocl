@@ -47,7 +47,6 @@ kernel void vecsmooth_v4(global int4 * restrict s, global const int4 * restrict 
 	
 	s[i] = (v1+v2+v3)/c;	// Componente per componente
 
-
 	/*	Altre modalità di accesso:
 		v1.s1 = v2.s0;
 		v1.s2 = v2.s1;	// seconda comp. di v1  = prima comp. di v2
@@ -88,10 +87,4 @@ kernel void vecsmooth_lmem(global int * restrict s, global const int * restrict 
 		++c;
 	}
 	s[gi] = (v1+v2+v3)/c;
-
-}
-
-kernel void vecsmooth_lmem4(global int4 * restrict s, global const int* restrict v, local volatile int4 *cache, int nquarts)
-{
-	// TODO: Versione vettorizzata
 }
