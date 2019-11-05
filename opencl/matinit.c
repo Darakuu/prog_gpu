@@ -8,20 +8,20 @@
 size_t gws_align_init;
 size_t gws_align_smooth;		
 
-cl_event matinit(cl_kernel matinit_k, cl_command_queue que, cl_int lws_cli, 
-				 cl_mem d_v1, cl_int nrows, cl_int ncols)
+cl_event matinit(cl_kernel matinit_k, cl_command_queue que, 
+									cl_mem d_A, cl_int nrows, cl_int ncols)
 {
-	const size_t gws[] = {nrows, ncols};  			// Sarà sempre un multiplo del local work size, se specificato
-	printf("init gws: %d | %zu = %zu\n",nels, gws_align_init, gws[0]);
-	
+	const size_t gws[] = {round_mul_up(ncols, gws_align_init), nrows};  			// Al contrario solo per mantenere la coalescenza
 	cl_event matinit_evt;
 	cl_int err;
 
 	cl_uint i = 0;
-	err = clSetKernelArg(matinit_k, i++, sizeof(d_v1), &d_v1);
+	err = clSetKernelArg(matinit_k, i++, sizeof(d_A), &d_A);
 	ocl_check(err, "set vecinit arg_dv1", i-1);
-	err = clSetKernelArg(matinit_k, i++, sizeof(nels), &nels);
-	ocl_check(err, "set vecinit arg_nels", i-1);
+	err = clSetKernelArg(matinit_k, i++, sizeof(ncols), &ncols);
+	ocl_check(err, "set vecinit arg_ncols", i-1);
+	err = clSetKernelArg(matinit_k, i++, sizeof(nrows), &nrows);
+	ocl_check(err, "set vecinit arg_nrows", i-1);
 	
 	err = clEnqueueNDRangeKernel(que, matinit_k, 2, NULL, gws, NULL, 0, NULL, &matinit_evt);
 	ocl_check(err, "enqueue vecinit");
@@ -36,7 +36,7 @@ void verify(const int *h_A, int nrows, int ncols)
     {
       if (h_A[r*ncols+c] != r-c)
       {
-        fprintf(stderr, "mismatch = (%d, %d) : %d != %d\n",
+        fprintf(stderr, "mismatch @ (%d, %d) : %d != %d\n",
                 r,c,h_A[r*ncols+c],r-c);
                 exit(3);
       }
@@ -46,74 +46,58 @@ void verify(const int *h_A, int nrows, int ncols)
 
 int main(int argc, char *argv[])
 {
-	if (argc <= 1) 
-	{
-		fprintf(stderr, "specify number of elements\n");
+	if (argc <= 2) {
+		fprintf(stderr, "specify number of rows and columns\n");
 		exit(1);
 	}
 
-	const int nels = atoi(argv[1]);
-	const size_t memsize = nels*sizeof(cl_int);
-
-	const int lws = argc > 2 ? atoi(argv[2] ) : 0; //specifico anche local work size
+	const int nrows = atoi(argv[1]);
+	const int ncols = atoi(argv[2]);
+	const size_t memsize = nrows*ncols*sizeof(cl_int);
 
   cl_platform_id plat_id = select_platform();
 	cl_device_id dev_id = select_device(plat_id);
 	cl_context ctx = create_context(plat_id, dev_id);
 	cl_command_queue que = create_queue(ctx, dev_id);
-	cl_program prog = create_program("vecsmooth.ocl", ctx, dev_id);	// File dei kernel deve avere lo stesso identico nome
+	cl_program prog = create_program("matinit.ocl", ctx, dev_id);
 	cl_int err;
 
-	cl_kernel vecinit_k = clCreateKernel(prog, "vecinit", &err);
-	ocl_check(err, "create kernel vecinit");
-	cl_kernel vecsmooth_k = clCreateKernel(prog, "vecsmooth", &err);
-	ocl_check(err, "create kernel vecsmooth");
+	cl_kernel matinit_k = clCreateKernel(prog, "matinit", &err);
+	ocl_check(err, "create kernel matinit");
 
-	err = clGetKernelWorkGroupInfo(vecinit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
+	err = clGetKernelWorkGroupInfo(matinit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
 				sizeof(gws_align_init), &gws_align_init, NULL);
 	ocl_check(err, "Preferred wg multiple for init");
-	err = clGetKernelWorkGroupInfo(vecsmooth_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
-				sizeof(gws_align_smooth), &gws_align_smooth, NULL);
-	ocl_check(err, "Preferred wg multiple for smooth");
 
-	// d_ = per device, sanity naming per il programmatore
-	cl_mem d_A = NULL, d_vsmooth = NULL;
+	cl_mem d_A = NULL;
 
-	d_A = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, memsize, NULL, &err);
+	d_A = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_v1");
 
-	cl_event init_evt, smooth_evt, read_evt;
+	cl_event init_evt, read_evt;
 
-	init_evt = vecinit(vecinit_k, que, lws, d_A, nels);
+	init_evt = matinit(matinit_k, que, d_A, nrows, ncols);
 	
-	smooth_evt = vecsmooth(vecsmooth_k, que, lws, d_vsmooth, d_v1, nels, init_evt);
-	
-	cl_int * h_A = clEnqueueMapBuffer(que,d_vsmooth,CL_FALSE,CL_MAP_READ, 0,memsize,1,&smooth_evt, &read_evt , &err);
+	cl_int * h_A = clEnqueueMapBuffer(que,d_A,CL_FALSE,CL_MAP_READ, 0,memsize,1,&init_evt, &read_evt , &err);
 	clWaitForEvents(1, &read_evt);	// Garanzia che vecsmooth ha concluso l'operazione
-	verify(h_vsmooth, nels);
+	verify(h_A, nrows,ncols);
 
 	const double runtime_init_ms = runtime_ms(init_evt);
-	const double runtime_smooth_ms  = runtime_ms(smooth_evt );
 	const double runtime_read_ms = runtime_ms(read_evt);
 
 	const double init_bw_gbs = 1.0*memsize/1.0e6/runtime_init_ms;
-	const double smooth_bw_gbs = 4.0*memsize/1.0e6/runtime_smooth_ms; // Ignoriamo quello che succede all'ultimo elemento. 3 read, 1 write
 	const double read_bw_gbs = memsize/1.0e6/runtime_read_ms;
 
-	printf("init: %d int in %gms: %g GB/s %g GE/s\n",
-		nels, runtime_init_ms, init_bw_gbs, nels/1.0e6/runtime_init_ms);
-	printf("smooth : %d int in %gms: %g GB/s %g GE/s\n",
-		nels, runtime_smooth_ms, smooth_bw_gbs,nels/1.0e6/runtime_smooth_ms);
-	printf("read : %d int in %gms: %g GB/s %g GE/s\n",
-		nels, runtime_read_ms, read_bw_gbs,nels/1.0e6/runtime_read_ms);
+	printf("init: %dx%d int in %gms: %g GB/s %g GE/s\n",
+		nrows, ncols, runtime_init_ms, init_bw_gbs, nrows*ncols/1.0e6/runtime_init_ms);
+	printf("read: %dx%d int in %gms: %g GB/s %g GE/s\n",
+		nrows, ncols, runtime_read_ms, read_bw_gbs, nrows*ncols/1.0e6/runtime_read_ms);
 
-	err = clEnqueueUnmapMemObject(que,d_vsmooth,h_vsmooth,0,NULL,NULL);
-	ocl_check(err, "unmap vsmooth");
-  clReleaseMemObject(d_vsmooth);		// Rilascio per i buffer openCL, in questo caso blocchi contigui di memoria.
-	clReleaseMemObject(d_v1);
-	clReleaseKernel(vecsmooth_k);		
-	clReleaseKernel(vecinit_k);		
-	clReleaseProgram(prog); 		
-	clReleaseCommandQueue(que);		
+	err = clEnqueueUnmapMemObject(que,d_A,h_A,0,NULL,NULL);
+	ocl_check(err, "unmap matrix");
+  clReleaseMemObject(d_A);
+	clReleaseKernel(matinit_k);
+	clReleaseProgram(prog);
+	clReleaseCommandQueue(que);
 	clReleaseContext(ctx);				
 }
