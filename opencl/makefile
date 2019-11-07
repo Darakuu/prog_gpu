@@ -5,7 +5,7 @@ OEXT=.out
 
 TARGETS= vecsum$(CEXT) vecsum4$(CEXT) vecsum8$(CEXT) vecsum4by4$(CEXT) vecsum4by2$(CEXT) vecsmooth$(CEXT)
 TARGETS+= vecsmooth_lmem$(CEXT) vecsmooth_v4$(CEXT) 
-TARGETS+= matinit$(CEXT)
+TARGETS+= matinit$(CEXT) transpose$(CEXT) transpose_lmem$(CEXT)
 
 all: $(TARGETS)
 	$(CC) vecsum$(CEXT) $(LDLIBS) -o vecsum$(OEXT)
@@ -18,3 +18,4 @@ all: $(TARGETS)
 	$(CC) vecsmooth_lmem$(CEXT) $(LDLIBS) -o vecsmooth_lmem$(OEXT)
 	$(CC) matinit$(CEXT) $(LDLIBS) -o matinit$(OEXT)
 	$(CC) transpose$(CEXT) $(LDLIBS) -o transpose$(OEXT)
+	$(CC) transpose_lmem$(CEXT) $(LDLIBS) -o transpose_lmem$(OEXT)
