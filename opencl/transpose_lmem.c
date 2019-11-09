@@ -56,17 +56,13 @@ cl_event transpose(cl_kernel transpose_k, int _lws, cl_command_queue que,
 void verify(const int *h_T, int nrows_T, int ncols_T)
 {
   for (int r = 0; r < nrows_T; ++r)
-  {
     for (int c = 0; c < ncols_T; ++c)
-    {
       if (h_T[r*ncols_T+c] != c-r)
       {
         fprintf(stderr, "mismatch = (%d, %d) : %d != %d\n",
                 r,c,h_T[r*ncols_T+c],c-r);
                 exit(3);
       }
-    }
-  }
 }
 
 int main(int argc, char *argv[])

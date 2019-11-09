@@ -18,14 +18,14 @@ cl_event matinit(cl_kernel matinit_k, cl_command_queue que,
 
 	cl_uint i = 0;
 	err = clSetKernelArg(matinit_k, i++, sizeof(d_A), &d_A);
-	ocl_check(err, "set vecinit arg_dv1", i-1);
+	ocl_check(err, "set matinit arg_dA", i-1);
 	err = clSetKernelArg(matinit_k, i++, sizeof(ncols), &ncols);
-	ocl_check(err, "set vecinit arg_ncols", i-1);
+	ocl_check(err, "set matinit arg_ncols", i-1);
 	err = clSetKernelArg(matinit_k, i++, sizeof(nrows), &nrows);
-	ocl_check(err, "set vecinit arg_nrows", i-1);
+	ocl_check(err, "set matinit arg_nrows", i-1);
 	
 	err = clEnqueueNDRangeKernel(que, matinit_k, 2, NULL, gws, NULL, 0, NULL, &matinit_evt);
-	ocl_check(err, "enqueue vecinit");
+	ocl_check(err, "enqueue matinit");
 	return matinit_evt;
 }
 
@@ -54,17 +54,13 @@ cl_event transpose(cl_kernel transpose_k, int vec, cl_command_queue que,
 void verify(const int *h_T, int nrows_T, int ncols_T)
 {
   for (int r = 0; r < nrows_T; ++r)
-  {
     for (int c = 0; c < ncols_T; ++c)
-    {
       if (h_T[r*ncols_T+c] != c-r)
       {
         fprintf(stderr, "mismatch = (%d, %d) : %d != %d\n",
                 r,c,h_T[r*ncols_T+c],c-r);
                 exit(3);
       }
-    }
-  }
 }
 
 int main(int argc, char *argv[])
