@@ -46,7 +46,7 @@ cl_event transpose(cl_kernel transpose_k, int vec, cl_command_queue que,
 	err = clSetKernelArg(transpose_k, i++, sizeof(nrows_T), &nrows_T);
 	ocl_check(err, "set tranpose arg_nrows", i-1);
 	
-	err = clEnqueueNDRangeKernel(que, transpose_k, 2, NULL, gws, NULL, 0, NULL, &trans_evt);
+	err = clEnqueueNDRangeKernel(que, transpose_k, 2, NULL, gws, NULL, 1, &init_evt, &trans_evt);
 	ocl_check(err, "enqueue transpose");
 	return trans_evt;
 }
