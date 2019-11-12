@@ -6,7 +6,6 @@
 #include "ocl_boiler.h"
 
 size_t gws_align_init;
-size_t gws_align_smooth;		
 
 cl_event matinit(cl_kernel matinit_k, cl_command_queue que, 
 									cl_mem d_A, cl_int nrows, cl_int ncols)
@@ -17,31 +16,27 @@ cl_event matinit(cl_kernel matinit_k, cl_command_queue que,
 
 	cl_uint i = 0;
 	err = clSetKernelArg(matinit_k, i++, sizeof(d_A), &d_A);
-	ocl_check(err, "set vecinit arg_dv1", i-1);
+	ocl_check(err, "set matinit arg_dv1", i-1);
 	err = clSetKernelArg(matinit_k, i++, sizeof(ncols), &ncols);
-	ocl_check(err, "set vecinit arg_ncols", i-1);
+	ocl_check(err, "set matinit arg_ncols", i-1);
 	err = clSetKernelArg(matinit_k, i++, sizeof(nrows), &nrows);
-	ocl_check(err, "set vecinit arg_nrows", i-1);
+	ocl_check(err, "set matinit arg_nrows", i-1);
 	
 	err = clEnqueueNDRangeKernel(que, matinit_k, 2, NULL, gws, NULL, 0, NULL, &matinit_evt);
-	ocl_check(err, "enqueue vecinit");
+	ocl_check(err, "enqueue matinit");
 	return matinit_evt;
 }
 
 void verify(const int *h_A, int nrows, int ncols)
 {
   for (int r = 0; r < nrows; ++r)
-  {
     for (int c = 0; c < ncols; ++c)
-    {
       if (h_A[r*ncols+c] != r-c)
       {
         fprintf(stderr, "mismatch @ (%d, %d) : %d != %d\n",
                 r,c,h_A[r*ncols+c],r-c);
                 exit(3);
       }
-    }
-  }
 }
 
 int main(int argc, char *argv[])
@@ -70,12 +65,10 @@ int main(int argc, char *argv[])
 	ocl_check(err, "Preferred wg multiple for init");
 
 	cl_mem d_A = NULL;
-
 	d_A = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_v1");
 
 	cl_event init_evt, read_evt;
-
 	init_evt = matinit(matinit_k, que, d_A, nrows, ncols);
 	
 	cl_int * h_A = clEnqueueMapBuffer(que,d_A,CL_FALSE,CL_MAP_READ, 0,memsize,1,&init_evt, &read_evt , &err);

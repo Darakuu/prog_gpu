@@ -96,16 +96,13 @@ int main(int argc, char *argv[])
 				sizeof(gws_align_init), &gws_align_init, NULL);
 	ocl_check(err, "Preferred wg multiple for init");
 
-	// d_ = per device, sanity naming per il programmatore
 	cl_mem d_A = NULL, d_T = NULL;
-
 	d_A = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_A");
   d_T = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_T");
 
 	cl_event init_evt, trans_evt, read_evt;
-
 	init_evt = matinit(matinit_k, que, d_A, nrows_A, ncols_A);
 	trans_evt = transpose(transpose_k, lws, que, d_T, d_A, nrows_T, ncols_T, init_evt);
 	
@@ -123,7 +120,7 @@ int main(int argc, char *argv[])
 
 	printf("init: %dx%d int in %gms: %g GB/s %g GE/s\n",
 		nrows_A, ncols_A, runtime_init_ms, init_bw_gbs, nrows_A*ncols_A/1.0e6/runtime_init_ms);
-    printf("transpose: %dx%d int in %gms: %g GB/s %g GE/s\n",
+	printf("transpose: %dx%d int in %gms: %g GB/s %g GE/s\n",
 		nrows_T, ncols_T, runtime_init_ms, init_bw_gbs, nrows_T*ncols_T/1.0e6/runtime_init_ms);
 	printf("read: %dx%d int in %gms: %g GB/s %g GE/s\n",
 		nrows_T, ncols_T, runtime_read_ms, read_bw_gbs, nrows_T*ncols_T/1.0e6/runtime_read_ms);
