@@ -119,9 +119,14 @@ kernel void transpose_lmem( // cached version
   
 
 	int effective_col = get_local_id(0) + get_local_id(1);
-  if(c_A < ncols_A && r_A < ncols_T)  // Disallineamento di banchi, tutti distinti.
+#if LWS_POW2
+		effective_col &= local_size -1;
+#else
+	if(effective_col > local_size) 
+		effective_col -= local_size; // This is exactly what '%' does, but much more effective. Less effective than '&'
+#endif
+	if(c_A < ncols_A && r_A < ncols_T)
     cache[get_local_id(1) * local_size + effective_col] = A[r_A*ncols_A+c_A];
-            // Row                        //Col
 
   barrier(CLK_LOCAL_MEM_FENCE); // Barrier is costly
 	

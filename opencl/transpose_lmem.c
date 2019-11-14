@@ -3,7 +3,7 @@
 #include <time.h>
 
 #define CL_TARGET_OPENCL_VERSION 120
-#include "ocl_boiler.h"
+#include "ocl_boiler_flags.h"
 
 size_t gws_align_init;
 
@@ -44,7 +44,7 @@ cl_event transpose(cl_kernel transpose_k, int _lws, cl_command_queue que,
 	ocl_check(err, "set tranpose arg_ncols", i-1);
 	err = clSetKernelArg(transpose_k, i++, sizeof(nrows_T), &nrows_T);
 	ocl_check(err, "set tranpose arg_nrows", i-1);
-  // Disallineamento (lws+1)
+  // Avoiding bank conflict with circular column now
   err = clSetKernelArg(transpose_k, i++, _lws*_lws*sizeof(cl_int), NULL);
 	ocl_check(err, "set tranpose arg lws", i-1);
 	
@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
 	const int nrows_A = atoi(argv[1]);
 	const int ncols_A = atoi(argv[2]);
 	const int lws = atoi(argv[3]);
+	const int lws_pow2 = ((lws & (( (lws-1) << 1 ) | 1)) == lws);	// Are the bits before the MSB set?
 
 	const size_t memsize = nrows_A*ncols_A*sizeof(cl_int);
   const int nrows_T = ncols_A;
@@ -84,8 +85,10 @@ int main(int argc, char *argv[])
 	cl_device_id dev_id = select_device(plat_id);
 	cl_context ctx = create_context(plat_id, dev_id);
 	cl_command_queue que = create_queue(ctx, dev_id);
-	cl_program prog = create_program("transpose.ocl", ctx, dev_id);
+	cl_program prog = create_program("transpose.ocl", lws_pow2 ? "-DLWS_POW2": "" , ctx, dev_id);
 	cl_int err;
+
+	printf ("lws is%s a power of two\n", lws_pow2 ? "" : " not");
 
 	cl_kernel matinit_k = clCreateKernel(prog, "matinit", &err);
 	ocl_check(err, "create kernel matinit");
