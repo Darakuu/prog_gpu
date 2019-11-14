@@ -45,7 +45,7 @@ cl_event transpose(cl_kernel transpose_k, int _lws, cl_command_queue que,
 	err = clSetKernelArg(transpose_k, i++, sizeof(nrows_T), &nrows_T);
 	ocl_check(err, "set tranpose arg_nrows", i-1);
   // Disallineamento (lws+1)
-  err = clSetKernelArg(transpose_k, i++, _lws+1*_lws*sizeof(cl_int), NULL);
+  err = clSetKernelArg(transpose_k, i++, _lws*_lws*sizeof(cl_int), NULL);
 	ocl_check(err, "set tranpose arg lws", i-1);
 	
 	err = clEnqueueNDRangeKernel(que, transpose_k, 2, NULL, gws, lws, 1, &init_evt, &trans_evt);
