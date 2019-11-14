@@ -117,8 +117,10 @@ kernel void transpose_lmem( // cached version
 	const int c_A = block_col_A*local_size+get_local_id(0);;
 	const int ncols_A = nrows_T;
   
+
+	int effective_col = (get_local_id(0) + get_local_id(1)) & local_size;
   if(c_A < ncols_A && r_A < ncols_T)  // Disallineamento di banchi, tutti distinti.
-    cache[get_local_id(1)*(local_size+1)+get_local_id(0)] = A[r_A*ncols_A+c_A];
+    cache[get_local_id(1) * local_size + effective_col] = A[r_A*ncols_A+c_A];
             // Row                        //Col
 
   barrier(CLK_LOCAL_MEM_FENCE); // Barrier is costly
@@ -126,6 +128,6 @@ kernel void transpose_lmem( // cached version
 	const int r_T = get_global_id(1); // get_group_id(1)*get_local_size(1)+get_local_id(1)
 	const int c_T = get_global_id(0); // get_group_id(0)*get_local_size(0)+get_local_id(0)
 	if(c_T < ncols_T && r_T < ncols_T)
-    T[ r_T*ncols_T + c_T ] = cache[get_local_id(0)*(local_size+1)+get_local_id(1)];
+    T[ r_T*ncols_T + c_T ] = cache[get_local_id(0)*local_size+ effective_col];
     // Transpose during read
 } 
