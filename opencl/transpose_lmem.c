@@ -75,7 +75,8 @@ int main(int argc, char *argv[])
 	const int nrows_A = atoi(argv[1]);
 	const int ncols_A = atoi(argv[2]);
 	const int lws = atoi(argv[3]);
-	const int lws_pow2 = ((lws & (( (lws-1) << 1 ) | 1)) == lws);	// Are the bits before the MSB set?
+	const int lws_pow2 = !(lws & (lws-1));	// Same thing as below
+	//const int lws_pow2 = ((lws & (( (lws-1) << 1 ) | 1)) == lws);	// Are the bits before the MSB set?
 
 	const size_t memsize = nrows_A*ncols_A*sizeof(cl_int);
   const int nrows_T = ncols_A;
