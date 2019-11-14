@@ -8,3 +8,14 @@ kernel void matinit(global int *A, int nrows, int ncols) //launch grid 2D
   A[r*ncols+c] = r-c;   // matrice simmetrica
 
 }
+
+kernel void matinit_pitch(global int *A, int nrows, int ncols, pitch_el) //launch grid 2D
+{
+  int r = get_global_id(1);
+  int c = get_global_id(0);
+
+  if(c>=ncols) return;
+
+  A[r*pitch_el+c] = r-c;   // matrice simmetrica
+
+}
