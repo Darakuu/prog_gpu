@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	cl_int err;
 
 	cl_kernel matinit_k = clCreateKernel(prog, "matinit_pitch", &err);
-	ocl_check(err, "create kernel matinit");
+	ocl_check(err, "create kernel matinit_pitch");
 
 	err = clGetKernelWorkGroupInfo(matinit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
 				sizeof(gws_align_init), &gws_align_init, NULL);
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	init_evt = matinit(matinit_k, que, d_A, nrows, ncols, pitch_el);
 	
 	cl_int * h_A = clEnqueueMapBuffer(que,d_A,CL_FALSE,CL_MAP_READ, 0,memsize,1,&init_evt, &read_evt , &err);
-	clWaitForEvents(1, &read_evt);	// Garanzia che vecsmooth ha concluso l'operazione
+	clWaitForEvents(1, &read_evt);
 	verify(h_A, nrows,ncols, pitch_el);
 
 	const double runtime_init_ms = runtime_ms(init_evt);

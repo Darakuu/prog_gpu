@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	init_evt = matinit(matinit_k, que, d_A, nrows, ncols);
 	
 	cl_int * h_A = clEnqueueMapBuffer(que,d_A,CL_FALSE,CL_MAP_READ, 0,memsize,1,&init_evt, &read_evt , &err);
-	clWaitForEvents(1, &read_evt);	// Garanzia che vecsmooth ha concluso l'operazione
+	clWaitForEvents(1, &read_evt);
 	verify(h_A, nrows,ncols);
 
 	const double runtime_init_ms = runtime_ms(init_evt);
