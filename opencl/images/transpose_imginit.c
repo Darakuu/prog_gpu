@@ -8,24 +8,20 @@ size_t gws_align_init;
 size_t gws_align_transpose;		
 
 
-cl_event matinit(cl_kernel matinit_k, cl_command_queue que, 
-									cl_mem d_A, cl_int nrows, cl_int ncols)
+cl_event imginit(cl_kernel imginit_k, cl_command_queue que, 
+									cl_mem d_I, cl_int nrows, cl_int ncols)
 {
-	const size_t gws[] = {round_mul_up(ncols, gws_align_init), nrows};  			// Al contrario solo per mantenere la coalescenza
-	cl_event matinit_evt;
+	const size_t gws[] = {round_mul_up(ncols, gws_align_init), nrows};
+  cl_event imginit_evt;
 	cl_int err;
 
 	cl_uint i = 0;
-	err = clSetKernelArg(matinit_k, i++, sizeof(d_A), &d_A);
-	ocl_check(err, "set matinit arg_dA", i-1);
-	err = clSetKernelArg(matinit_k, i++, sizeof(ncols), &ncols);
-	ocl_check(err, "set matinit arg_ncols", i-1);
-	err = clSetKernelArg(matinit_k, i++, sizeof(nrows), &nrows);
-	ocl_check(err, "set matinit arg_nrows", i-1);
+	err = clSetKernelArg(imginit_k, i++, sizeof(d_I), &d_I);
+	ocl_check(err, "set imginit arg_dA", i-1);
 	
-	err = clEnqueueNDRangeKernel(que, matinit_k, 2, NULL, gws, NULL, 0, NULL, &matinit_evt);
-	ocl_check(err, "enqueue matinit");
-	return matinit_evt;
+	err = clEnqueueNDRangeKernel(que, imginit_k, 2, NULL, gws, NULL, 0, NULL, &imginit_evt);
+	ocl_check(err, "enqueue imginit");
+	return imginit_evt;
 }
 
 cl_event transpose(cl_kernel transpose_k, cl_command_queue que, 
@@ -82,12 +78,12 @@ int main(int argc, char *argv[])
 	cl_program prog = create_program("transpose_img.ocl", ctx, dev_id);
 	cl_int err;
 
-	cl_kernel matinit_k = clCreateKernel(prog, "matinit", &err);
-	ocl_check(err, "create kernel matinit");
+	cl_kernel imginit_k = clCreateKernel(prog, "imginit", &err);
+	ocl_check(err, "create kernel imginit");
 	cl_kernel transpose_k = clCreateKernel(prog, trans_kernel_name, &err);
 	ocl_check(err, "create kernel transpose");
 
-	err = clGetKernelWorkGroupInfo(matinit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
+	err = clGetKernelWorkGroupInfo(imginit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
 				sizeof(gws_align_init), &gws_align_init, NULL);
 	err = clGetKernelWorkGroupInfo(transpose_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
 				sizeof(gws_align_transpose), &gws_align_transpose, NULL);
@@ -114,8 +110,8 @@ int main(int argc, char *argv[])
 	d_I = clCreateImage(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS,&fmt,&desc,NULL,&err);
 	ocl_check(err, "create image d_I");
 
-	cl_event init_evt, copy_evt, trans_evt, read_evt;	// copy_evt = inefficiente
-	init_evt = matinit(matinit_k, que, d_A, nrows_A, ncols_A);
+	cl_event imginit_evt, copy_evt, trans_evt, read_evt;	// copy_evt = inefficiente
+	imginit_evt = imginit(imginit_k, que, d_A, nrows_A, ncols_A);
 	
 	const size_t img_origin[3] = {0,0,0};
 	const size_t img_region[3] = {ncols_A, nrows_A, 1};
@@ -124,7 +120,7 @@ int main(int argc, char *argv[])
 		0 /*offset src(d_A) buffer*/,
 		img_origin	/*offset dest(d_I) buffer*/,
 		img_region/*region*/,
-		1, &init_evt, &copy_evt
+		1, &imginit_evt, &copy_evt
 		);
 	ocl_check(err, "Copy d_A in d_I");
 
@@ -134,7 +130,7 @@ int main(int argc, char *argv[])
 	clWaitForEvents(1, &read_evt);
 	verify(h_T, nrows_T,ncols_T);
 
-	const double runtime_init_ms = runtime_ms(init_evt);
+	const double runtime_init_ms = runtime_ms(imginit_evt);
 	const double runtime_copy_ms = runtime_ms(trans_evt);
   const double runtime_trans_ms = runtime_ms(trans_evt);
 	const double runtime_read_ms = runtime_ms(read_evt);
@@ -144,7 +140,7 @@ int main(int argc, char *argv[])
   const double trans_bw_gbs = 1.0*memsize/1.0e6/runtime_init_ms;
 	const double read_bw_gbs = memsize/1.0e6/runtime_read_ms;
 
-	printf("init: %dx%d int in %gms: %g GB/s %g GE/s\n",
+	printf("imginit: %dx%d int in %gms: %g GB/s %g GE/s\n",
 		nrows_A, ncols_A, runtime_init_ms, init_bw_gbs, nrows_A*ncols_A/1.0e6/runtime_init_ms);
   printf("copy: %dx%d int in %gms: %g GB/s %g GE/s\n",
 		nrows_T, ncols_T, runtime_copy_ms, copy_bw_gbs, nrows_T*ncols_T/1.0e6/runtime_copy_ms);
@@ -158,7 +154,7 @@ int main(int argc, char *argv[])
 	clReleaseMemObject(d_T);
   clReleaseMemObject(d_A);
 	clReleaseKernel(transpose_k);
-	clReleaseKernel(matinit_k);	
+	clReleaseKernel(imginit_k);	
 	clReleaseProgram(prog);	
 	clReleaseCommandQueue(que);
 	clReleaseContext(ctx);		
