@@ -1,0 +1,156 @@
+kernel void matinit(global int *A, int nrows, int ncols)
+{
+	int r = get_global_id(1);
+	int c = get_global_id(0);
+
+	if (c >= ncols) return;
+
+	A[r*ncols + c] = r - c;
+}
+
+kernel void transpose(
+	global int * restrict T,
+	global const int * restrict A,
+	int nrows_T, int ncols_T)
+{
+	const int r_T = get_global_id(1);
+	const int c_T = get_global_id(0);
+
+	if (c_T >= ncols_T) return;
+	if (r_T >= nrows_T) return;
+
+	const int r_A = c_T;
+	const int c_A = r_T;
+	const int ncols_A = nrows_T;
+
+	// T[ c_A*rows_A + r_A ] = A[ r_A*ncols_A + c_A ];
+	T[ r_T*ncols_T + c_T ] = A[ r_A*ncols_A + c_A ];
+}
+
+kernel void transpose2(
+	global int2 * restrict T,
+	global const int2 * restrict A,
+	// assumption: nrows_T and ncols_T multiples of 2
+	int nrows_T, int ncols_T)
+{
+	const int nvcols_T = ncols_T/2;
+
+	const int c2_T = get_global_id(0); /* from 0 to ncols_T/2 */
+	const int r2_T = get_global_id(1); /* from 0 to nrows_T/2 */
+
+	if (c2_T >= nvcols_T) return;
+	if (r2_T >= nrows_T/2) return;
+
+	const int c2_A = r2_T;
+	const int r2_A = c2_T;
+	const int nvcols_A = nrows_T/2;
+
+	const int2 v0 = A[ (2*r2_A + 0)*nvcols_A + c2_A ];
+	const int2 v1 = A[ (2*r2_A + 1)*nvcols_A + c2_A ];
+
+	const int2 w0 = (int2)(v0.x, v1.x);
+	const int2 w1 = (int2)(v0.y, v1.y);
+
+	T[ (2*r2_T + 0)*nvcols_T + c2_T ] = w0;
+	T[ (2*r2_T + 1)*nvcols_T + c2_T ] = w1;
+}
+
+kernel void transpose4(
+	global int4 * restrict T,
+	global const int4 * restrict A,
+	// assumption: nrows_T and ncols_T multiples of 4
+	int nrows_T, int ncols_T)
+{
+	const int nvcols_T = ncols_T/4;
+
+	const int c4_T = get_global_id(0); // from 0 to ncols_T/4 
+	const int r4_T = get_global_id(1); // from 0 to nrows_T/4 
+
+	if (c4_T >= nvcols_T) return;
+	if (r4_T >= nrows_T/4) return;
+
+	const int c4_A = r4_T;
+	const int r4_A = c4_T;
+	const int nvcols_A = nrows_T/4;
+
+	const int4 v0 = A[ (4*r4_A + 0)*nvcols_A + c4_A ];
+	const int4 v1 = A[ (4*r4_A + 1)*nvcols_A + c4_A ];
+	const int4 v2 = A[ (4*r4_A + 2)*nvcols_A + c4_A ];
+	const int4 v3 = A[ (4*r4_A + 3)*nvcols_A + c4_A ];
+
+	const int4 w0 = (int4)(v0.s0, v1.s0, v2.s0, v3.s0);
+	const int4 w1 = (int4)(v0.s1, v1.s1, v2.s1, v3.s1);
+	const int4 w2 = (int4)(v0.s2, v1.s2, v2.s2, v3.s2);
+	const int4 w3 = (int4)(v0.s3, v1.s3, v2.s3, v3.s3);
+
+	T[ (4*r4_T + 0)*nvcols_T + c4_T ] = w0;
+	T[ (4*r4_T + 1)*nvcols_T + c4_T ] = w1;
+	T[ (4*r4_T + 2)*nvcols_T + c4_T ] = w2;
+	T[ (4*r4_T + 3)*nvcols_T + c4_T ] = w3;
+}
+
+/*   WI | Reads | Writes
+   (4,2)   (2,4)   (4,2)
+   (4,3)   (2,5)   (4,3)
+   (5,2)   (3,4)   (5,2)
+   (5,3)   (3,5)   (4,3)
+*/
+/* Requirements:
+  * square work-group size(1x1)
+  * cache sized as 1*1*sizeof()
+*/
+
+kernel void transpose_lmem( // cached version
+	global int * restrict T,
+	global const int * restrict A,
+	int nrows_T, int ncols_T,
+  local int * restrict cache)
+{
+  const int local_size = get_local_size(0); // or get_local_size(1), should be the same
+  const int block_row_T = get_group_id(1);
+  const int block_col_T = get_group_id(0);
+  const int block_row_A = block_col_T;
+  const int block_col_A = block_row_T;
+
+  // necessitates square matrix
+	const int r_A = block_row_A*local_size+get_local_id(1);
+	const int c_A = block_col_A*local_size+get_local_id(0);;
+	const int ncols_A = nrows_T;
+  
+
+	int effective_col = get_local_id(0) + get_local_id(1);
+#if LWS_POW2
+		effective_col &= local_size -1;
+#else
+	if(effective_col > local_size) 
+		effective_col -= local_size; // This is exactly what '%' does, but much more effective. Less effective than '&'
+#endif
+	if(c_A < ncols_A && r_A < ncols_T)
+    cache[get_local_id(1) * local_size + effective_col] = A[r_A*ncols_A+c_A];
+
+  barrier(CLK_LOCAL_MEM_FENCE); // Barrier is costly
+	
+	const int r_T = get_global_id(1); // get_group_id(1)*get_local_size(1)+get_local_id(1)
+	const int c_T = get_global_id(0); // get_group_id(0)*get_local_size(0)+get_local_id(0)
+	if(c_T < ncols_T && r_T < ncols_T)
+    T[ r_T*ncols_T + c_T ] = cache[get_local_id(0)*local_size+ effective_col];
+    // Transpose during read
+} 
+
+kernel void transpose_img (global int * restrict T, read_only image2d_t I)
+{
+  const int r_T = get_global_id(1);
+	const int c_T = get_global_id(0);
+
+  int ncols_T = get_image_height(I);
+  int nrows_T = get_image_width(I);
+
+	if (c_T >= ncols_T) return;
+	if (r_T >= nrows_T) return;
+
+	const int r_A = c_T;
+	const int c_A = r_T;
+	const int ncols_A = nrows_T;
+
+	T[ r_T*ncols_T + c_T ] = read_imagei(I, (int2)(c_A,r_A)).x;
+}

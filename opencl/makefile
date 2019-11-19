@@ -2,6 +2,9 @@ CC=gcc
 LDLIBS=-lOpenCL
 CEXT=.c
 OEXT=.out
+DIR_VEC=vectors
+DIR_MAT=matrices
+DIR_IMG=images/
 
 TARGETS= vecsum$(CEXT) vecsum4$(CEXT) vecsum8$(CEXT) vecsum4by4$(CEXT) vecsum4by2$(CEXT) vecsmooth$(CEXT)
 TARGETS+= vecsmooth_lmem$(CEXT) vecsmooth_v4$(CEXT) 
@@ -20,3 +23,4 @@ all: $(TARGETS)
 	$(CC) matinit2$(CEXT) $(LDLIBS) -o matinit2$(OEXT)
 	$(CC) transpose$(CEXT) $(LDLIBS) -o transpose$(OEXT)
 	$(CC) transpose_lmem$(CEXT) $(LDLIBS) -o transpose_lmem$(OEXT)
+	$(CC) $(DIR_IMG)transpose_img$(CEXT) $(LDLIBS) -o $(DIR_IMG)transpose_img$(OEXT)
