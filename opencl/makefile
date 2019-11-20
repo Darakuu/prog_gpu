@@ -1,26 +1,11 @@
-CC=gcc
 LDLIBS=-lOpenCL
-CEXT=.c
-OEXT=.out
-DIR_VEC=vectors
-DIR_MAT=matrices
 DIR_IMG=images/
 
-TARGETS= vecsum$(CEXT) vecsum4$(CEXT) vecsum8$(CEXT) vecsum4by4$(CEXT) vecsum4by2$(CEXT) vecsmooth$(CEXT)
-TARGETS+= vecsmooth_lmem$(CEXT) vecsmooth_v4$(CEXT) 
-TARGETS+= matinit$(CEXT) transpose$(CEXT) transpose_lmem$(CEXT)
+TARGETS = vecsum vecsum4 vecsum8 vecsum4by4 vecsum4by2
+TARGETS+= vecsmooth vecsmooth_lmem vecsmooth_v4
+TARGETS+= matinit transpose transpose_lmem $(DIR_IMG)transpose_img
 
-all: $(TARGETS)
-	$(CC) vecsum$(CEXT) $(LDLIBS) -o vecsum$(OEXT)
-	$(CC) vecsum4$(CEXT) $(LDLIBS) -o vecsum4$(OEXT)
-	$(CC) vecsum8$(CEXT) $(LDLIBS) -o vecsum8$(OEXT)
-	$(CC) vecsum4by4$(CEXT) $(LDLIBS) -o vecsum4by4$(OEXT)
-	$(CC) vecsum4by2$(CEXT) $(LDLIBS) -o vecsum4by2$(OEXT)
-	$(CC) vecsmooth$(CEXT) $(LDLIBS) -o vecsmooth$(OEXT)
-	$(CC) vecsmooth_v4$(CEXT) $(LDLIBS) -o vecsmooth_v4$(OEXT)
-	$(CC) vecsmooth_lmem$(CEXT) $(LDLIBS) -o vecsmooth_lmem$(OEXT)
-	$(CC) matinit$(CEXT) $(LDLIBS) -o matinit$(OEXT)
-	$(CC) matinit2$(CEXT) $(LDLIBS) -o matinit2$(OEXT)
-	$(CC) transpose$(CEXT) $(LDLIBS) -o transpose$(OEXT)
-	$(CC) transpose_lmem$(CEXT) $(LDLIBS) -o transpose_lmem$(OEXT)
-	$(CC) $(DIR_IMG)transpose_img$(CEXT) $(LDLIBS) -o $(DIR_IMG)transpose_img$(OEXT)
+other: 	$(addsuffix .out,$(TARGETS))
+	rm -f $(TARGETS)
+all: $(TARGETS)	
+
