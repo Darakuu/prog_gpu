@@ -1,4 +1,7 @@
 LDLIBS=-lOpenCL
+
+DIR_VEC=vectors/
+DIR_MAT=matrices/
 DIR_IMG=images/
 
 TARGETS = vecsum vecsum4 vecsum8 vecsum4by4 vecsum4by2
