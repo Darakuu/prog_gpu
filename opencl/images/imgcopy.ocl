@@ -1,7 +1,7 @@
 const sampler_t m_sampler= 
   CLK_NORMALIZED_COORDS_FALSE |
   CLK_ADDRESS_REPEAT          |
-  CLK_FILTER_NEAREST;
+  CLK_FILTER_LINEAR;
 
 void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_input)
 {
@@ -11,7 +11,7 @@ void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_inpu
 
   if (col < dim.x && row < dim.y)
   {
-    const float4 px = read_imagef(d_input, m_sampler, (float2)(row,col));  // Normalized input, IEEE 754
+    const float4 px = read_imagef(d_input, m_sampler, (float2)(col+0.5f,row+0.5f));  // 0.5f is added to get the exact pixel value.
     d_output[row*dim.x+col] = convert_uchar4(px*255);  //Value de-normalization
   }
 }
