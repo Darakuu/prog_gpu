@@ -1,0 +1,12 @@
+void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_input)
+{
+  const int col = get_global_id(0);
+  const int row = get_global_id(1);
+  const int2 dim = get_image_dim(d_input);
+
+  if (col < dim.x && row < dim.y)
+  {
+    const uint4 px = read_imageui(d_input, (int2)(row,col));
+    d_output[row*dim.x+col] = convert_uchar4(px);
+  }
+}
