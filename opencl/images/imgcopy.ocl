@@ -1,6 +1,6 @@
 const sampler_t m_sampler= 
-  CLK_NORMALIZED_COORDS_TRUE |
-  CLK_ADDRESS_REPEAT          | // This only works for normalized coords
+  CLK_NORMALIZED_COORDS_TRUE  |
+  CLK_ADDRESS_MIRRORED_REPEAT | // This (and CLK_ADDRESS_REPEAT) only works for normalized coords
   CLK_FILTER_LINEAR;
 
 void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_input)
@@ -15,9 +15,9 @@ void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_inpu
     coords.x /= dim.x;
     coords.y /= dim.y;
 
-    /*Data is now normalized, we can now transform*/
+    /*Coords are now normalized, we can now transform*/
 
-    coords *= 2;
+    coords *= 3;
 
     const float4 px = read_imagef(d_input, m_sampler, coords);  // 0.5f is added to get the exact pixel value.
     d_output[row*dim.x+col] = convert_uchar4(px*255);  //Value de-normalization
