@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 	const cl_image_format fmt = 
   {
     .image_channel_order = CL_RGBA,
-    .image_channel_data_type = CL_UNSIGNED_INT8
+    .image_channel_data_type = CL_UNORM_INT8
   };
 
   const cl_image_desc desc =
