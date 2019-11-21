@@ -6,7 +6,7 @@ void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_inpu
 
   if (col < dim.x && row < dim.y)
   {
-    const uint4 px = read_imageui(d_input, (int2)(row,col));
-    d_output[row*dim.x+col] = convert_uchar4(px);
+    const float4 px = read_imagef(d_input, (int2)(row,col));  // Normalized input, IEEE 754
+    d_output[row*dim.x+col] = convert_uchar4(px*255);  //De-normalization
   }
 }
