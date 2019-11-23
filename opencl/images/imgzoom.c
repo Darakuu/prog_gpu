@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 	}
 
   const char *input_fname = argv[1];
-  const char *output_fname = "copia.pam";
+  const char *output_fname = "zoomed.pam";
 
   struct imgInfo src, dst;
   cl_int err = load_pam(input_fname, &src);
@@ -61,15 +61,12 @@ int main(int argc, char *argv[])
   dst.height    *= 2;
   dst.data_size *= 4;
   dst.data = NULL;
-
-  
   
   cl_platform_id plat_id = select_platform();
 	cl_device_id dev_id = select_device(plat_id);
 	cl_context ctx = create_context(plat_id, dev_id);
 	cl_command_queue que = create_queue(ctx, dev_id);
 	cl_program prog = create_program("imgzoom.ocl", ctx, dev_id);
-	cl_int err;
 	cl_kernel imgzoom_k = clCreateKernel(prog, "imgzoom", &err);
 	ocl_check(err, "create kernel imgzoom");
 

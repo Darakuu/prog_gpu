@@ -66,7 +66,6 @@ int main(int argc, char *argv[])
 	cl_context ctx = create_context(plat_id, dev_id);
 	cl_command_queue que = create_queue(ctx, dev_id);
 	cl_program prog = create_program("imgcopy.ocl", ctx, dev_id);
-	cl_int err;
 	cl_kernel imgcopy_k = clCreateKernel(prog, "imgcopy", &err);
 	ocl_check(err, "create kernel imgcopy");
 

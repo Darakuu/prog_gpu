@@ -3,7 +3,7 @@ const sampler_t m_sampler=
   CLK_ADDRESS_MIRRORED_REPEAT | // This (and CLK_ADDRESS_REPEAT) only works for normalized coords
   CLK_FILTER_LINEAR;
 
-void kernel imgcopy(global uchar4 *restrict d_output, read_only image2d_t d_input)
+void kernel imgzoom(global uchar4 *restrict d_output, read_only image2d_t d_input)
 {
   const int col = get_global_id(0);
   const int row = get_global_id(1);
