@@ -1,0 +1,20 @@
+// Suppose that the input to be reduce is a power of 2
+
+kernel void vecinit(global float * out, int n)
+{
+  const int i = get_global_id(0);
+  if (i<n) out[i] = 1.0f;
+}
+
+kernel void reduce4 (global float * restrict out, global const float4 * restrict in,
+  local float * restrict lmem, int n_quarts)
+{
+  int i = get_global_id(0);
+  if (i >= n_quarts) return; 
+  float4 v = in[i];
+  float r = out[i] = (v.x+v.y) + (v.z+v.w);
+
+  /* ... */
+
+  out[i] = r;
+}
