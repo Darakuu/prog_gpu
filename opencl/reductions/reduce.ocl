@@ -29,3 +29,32 @@ kernel void reduce4 (global float * restrict out, global const float4 * restrict
   float4 v = in[i];
   out[i] = (v.x+v.y) + (v.z+v.w);
 }
+
+/* Sliding window explanation
+    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+    \- 0 -/ \- 1 -/ \-- 2 --/ \--- 3 ---/ \--- 0 ---/ \--- 1 ---/ \--- 2 ---/ \--- 3 ---/
+*/
+
+// Sliding Windows 4x4
+kernel void reduce4_sl (global float * restrict out, global const float4 * restrict in, int n_hex)
+{ 
+  int i = get_global_id(0);
+  int gws = get_global_size(0);
+  if (i >= n_hex) return;
+  float4 v0 = in[4*i + 0*gws];
+  float4 v1 = in[4*i + 1*gws];
+  float4 v2 = in[4*i + 2*gws];
+  float4 v3 = in[4*i + 3*gws];
+
+#if 1
+  float4 = v = (v0+v1) + (v2+v3)
+  out[i] = (v.x+v.y) + (v.z+v.w)
+#else
+  float r0 = (v0.x+v0.y) + (v0.z+v0.w);
+  float r1 = (v1.x+v1.y) + (v1.z+v1.w);
+  float r2 = (v2.x+v2.y) + (v2.z+v2.w);
+  float r3 = (v3.x+v3.y) + (v3.z+v3.w); 
+  
+  out[i] = (r0+r1) + (r2+r3);
+#endif
+}
