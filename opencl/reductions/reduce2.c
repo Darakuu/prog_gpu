@@ -158,6 +158,11 @@ int main(int argc, char *argv[])
       mem_curr/=2;
   }
 
+  const double runtime_reduction_ms = total_runtime_ms(reduce_evt[1], reduce_evt[npass]);
+
+  printf("reduce: %d float in %gms : %g GE/s\n",
+    nels, runtime_reduction_ms,);
+
 	printf("read : 1 int in %gms: %g GB/s %g GE/s\n",
 		nels, runtime_read_ms, read_bw_gbs,nels/1.0e6/runtime_read_ms);
 
