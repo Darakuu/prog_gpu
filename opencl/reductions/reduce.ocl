@@ -21,3 +21,11 @@ kernel void reduce2 (global float * restrict out, global const float2 * restrict
   float2 v = in[i];
   out[i] = v.x+v.y;
 }
+
+kernel void reduce4 (global float * restrict out, global const float4 * restrict in, int n_quarts)
+{
+  int i = get_global_id(0);
+  if (i >= n_quarts) return; 
+  float4 v = in[i];
+  out[i] = (v.x+v.y) + (v.z+v.w);
+}
