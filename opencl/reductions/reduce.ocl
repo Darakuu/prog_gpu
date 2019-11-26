@@ -5,19 +5,19 @@ kernel void vecinit(global float * out, int n)
   const int i = get_global_id(0);
   if (i<n) out[i] = 1.0f;
 }
-
+/*
 kernel void reduce (global float * restrict out, const float * restrict in, int n_singles)
 {
   int i = get_global_id(0);
   if (2*i + 1 < n_singles) out[i] = in[2*i] + in[2*i+1];
-  else if (2*1 < n) out[i] = in[2*i];
+  else if (2*1 < n_singles) out[i] = in[2*i];
 }
+*/
 
 kernel void reduce2 (global float * restrict out, global const float2 * restrict in, int n_pairs)
 { // float2 = small trick for better parallelization
   int i = get_global_id(0);
   if (i >= n_pairs) return;
-  
   float2 v = in[i];
   out[i] = v.x+v.y;
 }
@@ -47,8 +47,8 @@ kernel void reduce4_sl (global float * restrict out, global const float4 * restr
   float4 v3 = in[4*i + 3*gws];
 
 #if 1
-  float4 = v = (v0+v1) + (v2+v3)
-  out[i] = (v.x+v.y) + (v.z+v.w)
+  float4 v = (v0+v1) + (v2+v3);
+  out[i] = (v.x+v.y) + (v.z+v.w);
 #else
   float r0 = (v0.x+v0.y) + (v0.z+v0.w);
   float r1 = (v1.x+v1.y) + (v1.z+v1.w);

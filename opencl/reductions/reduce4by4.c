@@ -3,7 +3,7 @@
 #include <time.h>
 
 #define CL_TARGET_OPENCL_VERSION 120
-#include "../ocl_boiler.h"
+#include "ocl_boiler2.h"
 
 size_t gws_align_init;	// Struct per fare le cose meglio
 size_t gws_align_sum;		// global variables bad
@@ -55,10 +55,10 @@ cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que,
 
 void verify(const float vsum, int nels)
 {
-  unsigned long long  expected = (unsigned long long)(nels+1)*(nels/2);
-  if (expected != nels) 
+  unsigned long long expected = (unsigned long long)(nels+1)*(nels/2);
+  if (vsum != expected) 
   {
-    fprintf(stderr, "mismatch @ %d : %d != %d\n", expected, vsum, nels);
+    fprintf(stderr, "mismatch @ %g != %d\n", vsum, nels);
     exit(3);
   }
 }
@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     while( tmp>>=4 ) ++npass;
   }
 
-  printf("expected %d passes", npass);
+  printf("expected %d passes\n", npass);
 
 	cl_event init_evt, reduce_evt[npass+1], read_evt;
 
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
   }
 
   float risultato; 
-  err = clEnqueueMapBuffer(que, d_v1, CL_TRUE, 0, sizeof(risultato), &risultato, 1, &reduce_evt+npass, &read_evt, &err);
+  err = clEnqueueReadBuffer(que, d_v1, CL_TRUE, 0, sizeof(risultato), &risultato, 1, reduce_evt+npass, &read_evt);
 	ocl_check(err, "read result");
   // No waiting, CL_TRUE means it's synched
 	verify(risultato, nels);
