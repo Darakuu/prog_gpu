@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
   
   d_input = clCreateImage(ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY| CL_MEM_USE_HOST_PTR, &fmt, &desc, src.data, &err);
 	ocl_check(err, "create image d_input");
-  d_out = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, dst.data_size,NULL, &err);
+  d_out = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY | CL_MEM_ALLOC_HOST_PTR, dst.data_size, NULL, &err);
   ocl_check(err,"create buffer d_out");
 
 	cl_event imgzoom_evt, map_evt;
@@ -127,5 +127,6 @@ int main(int argc, char *argv[])
 	clReleaseProgram(prog);
 	clReleaseCommandQueue(que);
 	clReleaseContext(ctx);				
-/**/
+	
+	return 0;
 }

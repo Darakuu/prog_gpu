@@ -127,5 +127,5 @@ int main(int argc, char *argv[])
 	clReleaseProgram(prog);
 	clReleaseCommandQueue(que);
 	clReleaseContext(ctx);				
-/**/
+	return 0;
 }
