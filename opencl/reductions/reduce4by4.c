@@ -31,11 +31,11 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, cl_mem d_v1, cl_int 
 }
 
 cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que, 
-				cl_mem d_vsum, cl_mem d_v1, cl_int nquarts, cl_event init_evt)
+				cl_mem d_vsum, cl_mem d_v1, cl_int nhex, cl_event init_evt)
 {
   // Allineamento del global work size
-	const size_t gws[] = {round_mul_up(nquarts,gws_align_sum)};  			// Sarà sempre un multiplo di gws_align
-	printf("sum gws: %d | %zu = %zu\n",nquarts, gws_align_sum, gws[0]);
+	const size_t gws[] = {round_mul_up(nhex,gws_align_sum)};  			// Sarà sempre un multiplo di gws_align
+	printf("sum gws: %d | %zu = %zu\n",nhex, gws_align_sum, gws[0]);
 
 	cl_event reduce4_evt;
 	cl_int err;
@@ -45,7 +45,7 @@ cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que,
 	ocl_check(err, "set reduce4 arg_dvsum", i-1);
 	err = clSetKernelArg(reduce4_k, i++, sizeof(d_v1), &d_v1);
 	ocl_check(err, "set reduce4 arg_dv1", i-1);
-	err = clSetKernelArg(reduce4_k, i++, sizeof(nquarts), &nquarts);
+	err = clSetKernelArg(reduce4_k, i++, sizeof(nhex), &nhex);
 	ocl_check(err, "set reduce4 arg_nels", i-1);
 
 	err = clEnqueueNDRangeKernel(que, reduce4_k, 1, NULL, gws, NULL, 1, &init_evt, &reduce4_evt);
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
 
 	cl_kernel vecinit_k = clCreateKernel(prog, "vecinit", &err);
 	ocl_check(err, "create kernel vecinit");
-	cl_kernel reduce4_k = clCreateKernel(prog, "reduce4", &err);
+	cl_kernel reduce4_k = clCreateKernel(prog, "reduce4_sl", &err);
 	ocl_check(err, "create kernel reduce4");
 
 	err = clGetKernelWorkGroupInfo(vecinit_k, dev_id, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, 
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 	d_v1 = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_v1");
 	
-	d_v2 = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, memsize/4 , NULL, &err);
+	d_v2 = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_HOST_READ_ONLY, memsize/16 , NULL, &err);
 	ocl_check(err, "create buffer d_vsum");
 
   // compute number of passes needed to reduce the whole array;
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
   int npass = 1;
   { //lower scope
     int tmp = nels;
-    while( tmp>>=2 ) ++npass;
+    while( tmp>>=4 ) ++npass;
   }
 
   printf("expected %d passes", npass);
@@ -121,13 +121,13 @@ int main(int argc, char *argv[])
   int nels_curr = nels;
   for(int p = 0; p<npass; ++p)
   {
-    int  nquarts = nels_curr/4;
-    if (nquarts == 0) ocl_check(CL_INVALID_ARG_INDEX, "sbagghiasti");
-	  reduce_evt[p+1] = reduce4(reduce4_k, que, d_v2, d_v1, nquarts, reduce_evt[p]);
+    int  nhex = nels_curr/16;
+    if (nhex == 0) ocl_check(CL_INVALID_ARG_INDEX, "sbagghiasti");
+	  reduce_evt[p+1] = reduce4(reduce4_k, que, d_v2, d_v1, nhex, reduce_evt[p]);
     cl_mem t = d_v1;
     d_v1 = d_v2;
     d_v2 = t;
-    nels_curr = nquarts;
+    nels_curr = nhex;
   }
 
   float risultato; 
