@@ -32,7 +32,7 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, cl_mem d_v1, cl_int 
 
 cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que, cl_mem d_vsum, cl_mem d_v1, cl_int nhex, cl_event init_evt)
 {
-	const size_t gws[] = { round_mul_up(nhex, gws_align_sum) };
+	const size_t gws[] = { nhex };	// To keep rounding, we would have needed to pass the stride value as argument
 	printf("sum gws: %d | %zu = %zu\n", nhex, gws_align_sum, gws[0]);
 	cl_event reduce4_evt;
 	cl_int err;
@@ -50,6 +50,7 @@ cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que, cl_mem d_vsum, cl_me
 		1, &init_evt, &reduce4_evt);
 
 	ocl_check(err, "enqueue reduce4");
+	if (err == -4) exit(-1);	// EXPERIMENTAL (prevents freezing if gws size is too much for the hardware to handle, still not tested)
 
 	return reduce4_evt;
 }
@@ -59,7 +60,7 @@ void verify(const float vsum, int nels)
 	unsigned long long expected = (unsigned long long)(nels+1)*(nels/2);
 	if (vsum != expected) 
 	{
-		fprintf(stderr, "mismatch @ %g != %d\n", vsum, nels);
+		fprintf(stderr, "mismatch @ %g != %llu\n", vsum, expected);
 		exit(3);
 	}
 }
