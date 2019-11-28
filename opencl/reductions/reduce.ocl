@@ -33,10 +33,10 @@ kernel void reduce4_sl (global float * restrict out, global const float4 * restr
   int i = get_global_id(0);
   int gws = get_global_size(0);
   if (i >= n_hex) return;
-  float4 v0 = in[4*i + 0*gws];
-  float4 v1 = in[4*i + 1*gws];
-  float4 v2 = in[4*i + 2*gws];
-  float4 v3 = in[4*i + 3*gws];
+  float4 v0 = in[i + 0*gws];
+  float4 v1 = in[i + 1*gws];
+  float4 v2 = in[i + 2*gws];
+  float4 v3 = in[i + 3*gws];
 
 #if 1
   float4 v = (v0+v1) + (v2+v3);
@@ -49,4 +49,18 @@ kernel void reduce4_sl (global float * restrict out, global const float4 * restr
   
   out[i] = (r0+r1) + (r2+r3);
 #endif
+}
+
+kernel void reduce4_sat (global float * restrict out, global const float4 * restrict in, int n_quarts)
+{ // sat = saturation
+  const int gws_ = get_global_size(0);
+  int i = get_global_id(0);
+  float acc = 0.0f;
+  while (i < n_quarts)
+  {
+    float4 v = in[i];
+    acc +=out[i] = (v.x+v.y) + (v.z+v.w);
+    i+=gws_;
+  } 
+  out[get_global_id(0)] = acc;
 }
