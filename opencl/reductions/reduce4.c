@@ -18,9 +18,9 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 
 	cl_uint i = 0;
 	err = clSetKernelArg(vecinit_k, i++, sizeof(d_v1), &d_v1);
-	ocl_check(err, "set vecinit arg", i-1);
+	ocl_check(err, "set vecinit arg dv1", i-1);
 	err = clSetKernelArg(vecinit_k, i++, sizeof(nels), &nels);
-	ocl_check(err, "set vecinit arg", i-1);
+	ocl_check(err, "set vecinit arg nels", i-1);
 
 	err = clEnqueueNDRangeKernel(que, vecinit_k, 1,
 		NULL, gws, NULL,
@@ -42,11 +42,11 @@ cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que,
 
 	cl_uint i = 0;
 	err = clSetKernelArg(reduce4_k, i++, sizeof(d_vsum), &d_vsum);
-	ocl_check(err, "set reduce4 arg", i-1);
+	ocl_check(err, "set reduce4 arg dvsum", i-1);
 	err = clSetKernelArg(reduce4_k, i++, sizeof(d_v1), &d_v1);
-	ocl_check(err, "set reduce4 arg", i-1);
+	ocl_check(err, "set reduce4 arg dv1", i-1);
 	err = clSetKernelArg(reduce4_k, i++, sizeof(nquarts), &nquarts);
-	ocl_check(err, "set reduce4 arg", i-1);
+	ocl_check(err, "set reduce4 arg nquarts", i-1);
 
 	err = clEnqueueNDRangeKernel(que, reduce4_k, 1,
 		NULL, gws, NULL,
@@ -60,7 +60,8 @@ cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que,
 void verify(const float vsum, int nels)
 {
 	unsigned long long expected = (unsigned long long)(nels+1)*(nels/2);
-	if (vsum != expected) {
+	if (vsum != expected) 
+	{
 		fprintf(stderr, "mismatch @ %g != %d\n", vsum, nels);
 		exit(3);
 	}
