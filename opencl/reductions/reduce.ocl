@@ -3,7 +3,7 @@
 kernel void vecinit(global float * out, int n)
 {
   const int i = get_global_id(0);
-  if (i<n) out[i] = 1.0f;
+  if (i<n) out[i] = (i+1);
 }
 /*
 kernel void reduce (global float * restrict out, const float * restrict in, int n_singles)
