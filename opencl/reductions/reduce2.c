@@ -5,8 +5,8 @@
 #define CL_TARGET_OPENCL_VERSION 120
 #include "ocl_boiler2.h"
 
-size_t gws_align_init;	// Struct per fare le cose meglio
-size_t gws_align_sum;		// global variables bad
+size_t gws_align_init;
+size_t gws_align_sum;
 
 cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, cl_mem d_v1, cl_int nels)
 {

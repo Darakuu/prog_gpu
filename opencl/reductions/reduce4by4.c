@@ -8,8 +8,7 @@
 size_t gws_align_init;
 size_t gws_align_sum;
 
-cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
-	cl_mem d_v1, cl_int nels)
+cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que, cl_mem d_v1, cl_int nels)
 {
 	const size_t gws[] = { round_mul_up(nels, gws_align_init) };
 	printf("init gws: %d | %zu = %zu\n", nels, gws_align_init, gws[0]);
@@ -31,9 +30,7 @@ cl_event vecinit(cl_kernel vecinit_k, cl_command_queue que,
 	return vecinit_evt;
 }
 
-cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que,
-	cl_mem d_vsum, cl_mem d_v1, cl_int nhex,
-	cl_event init_evt)
+cl_event reduce4(cl_kernel reduce4_k, cl_command_queue que, cl_mem d_vsum, cl_mem d_v1, cl_int nhex, cl_event init_evt)
 {
 	const size_t gws[] = { round_mul_up(nhex, gws_align_sum) };
 	printf("sum gws: %d | %zu = %zu\n", nhex, gws_align_sum, gws[0]);
@@ -70,7 +67,8 @@ void verify(const float vsum, int nels)
 
 int main(int argc, char *argv[])
 {
-	if (argc <= 1) {
+	if (argc <= 1) 
+	{
 		fprintf(stderr, "specify number of elements\n");
 		exit(1);
 	}
@@ -93,25 +91,19 @@ int main(int argc, char *argv[])
 	/* get information about the preferred work-group size multiple */
 	err = clGetKernelWorkGroupInfo(vecinit_k, d,
 		CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-		sizeof(gws_align_init), &gws_align_init, NULL);
+		sizeof(gws_align_init), &gws_align_init, NULL);	
 	ocl_check(err, "preferred wg multiple for init");
 	err = clGetKernelWorkGroupInfo(reduce4_k, d,
 		CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
 		sizeof(gws_align_sum), &gws_align_sum, NULL);
-	ocl_check(err, "preferred wg multiple for sum");
+	ocl_check(err, "preferred wg multiple for reduce");
 
 	cl_mem d_v1 = NULL, d_v2 = NULL;
 
-	d_v1 = clCreateBuffer(ctx,
-		CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY,
-		memsize, NULL,
-		&err);
+	d_v1 = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, memsize, NULL, &err);
 	ocl_check(err, "create buffer d_v1");
 
-	d_v2 = clCreateBuffer(ctx,
-		CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY,
-		memsize/4, NULL,
-		&err);
+	d_v2 = clCreateBuffer(ctx, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, memsize/4, NULL, &err);
 	ocl_check(err, "create buffer d_v2");
 
 	// compute number of passes needed to reduce the whole array
@@ -141,8 +133,7 @@ int main(int argc, char *argv[])
 	}
 
 	float risultato;
-	err = clEnqueueReadBuffer(que, d_v1, CL_TRUE, 0, sizeof(risultato), &risultato,
-		1, reduce_evt + npass, &read_evt);
+	err = clEnqueueReadBuffer(que, d_v1, CL_TRUE, 0, sizeof(risultato), &risultato, 1, reduce_evt + npass, &read_evt);
 	ocl_check(err, "read result");
 
 	verify(risultato, nels);
