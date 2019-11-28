@@ -62,7 +62,7 @@ void verify(const float vsum, int nels)
 	unsigned long long expected = (unsigned long long)(nels+1)*(nels/2);
 	if (vsum != expected) 
 	{
-		fprintf(stderr, "mismatch @ %g != %d\n", vsum, nels);
+		fprintf(stderr, "mismatch @ %g != %llu\n", vsum, expected);
 		exit(3);
 	}
 }
