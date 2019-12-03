@@ -64,3 +64,37 @@ kernel void reduce4_sat (global int * restrict out, global const int4 * restrict
   } 
   out[get_global_id(0)] = acc;
 }
+
+kernel void reduce_lmem(global int * restrict out, global const int4 * restrict in, local int* restrict lmem, int nquarts)
+{
+  const int gws = get_global_size(0);
+  int i = get_global_id(0);
+  int acc = 0;
+  while (i<nquarts)
+  {
+    int4 v0 = in[i + 0*gws]; 
+    int4 v1 = i < nquarts - 1*gws ? in[i+1*gws] : (int4)(0);
+    int4 v2 = i < nquarts - 2*gws ? in[i+2*gws] : (int4)(0);
+    int4 v3 = i < nquarts - 3*gws ? in[i+3*gws] : (int4)(0);
+
+    acc += (v0.x+v0.y) + (v0.z + v0.w);
+    acc += (v1.x+v1.y) + (v1.z + v1.w);
+    acc += (v2.x+v2.y) + (v2.z + v2.w);
+    acc += (v3.x+v3.y) + (v3.z + v3.w);
+    i+=4*gws;
+  }
+  i = get_local_id(0);
+  lmem[i] = acc;
+  int working = get_local_size(0) >> 1;
+  while (working > 0)
+  {
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (i<working)
+    {
+      acc+=lmem[i+working];
+      lmem[i] = acc;
+    }
+    working >>= 1;  // working = working >> 1
+  }
+  if (i == 0) out[get_group_id(0)] = acc;
+}
