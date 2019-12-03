@@ -51,15 +51,15 @@ kernel void reduce4_sl (global float * restrict out, global const float4 * restr
 #endif
 }
 
-kernel void reduce4_sat (global float * restrict out, global const float4 * restrict in, int n_quarts)
+kernel void reduce4_sat (global int * restrict out, global const int4 * restrict in, int n_quarts)
 { // sat = saturation
   const int gws_ = get_global_size(0);
   int i = get_global_id(0);
-  float acc = 0.0f;
+  int acc = 0.0f;
   while (i < n_quarts)
   {
-    float4 v = in[i];
-    acc +=out[i] = (v.x+v.y) + (v.z+v.w);
+    int4 v = in[i];
+    acc +=out[i] = (v.x+v.y) + (v.z+v.w);   // This doesn't work with floats. Precision errors. (float sum is not associative!!)
     i+=gws_;
   } 
   out[get_global_id(0)] = acc;
