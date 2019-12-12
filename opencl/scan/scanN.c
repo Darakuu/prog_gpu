@@ -88,7 +88,7 @@ int main(int argc, char * argv[])
 	const int lws = atoi(argv[2]);
 	const int nwg = atoi(argv[3]);
 	const size_t memsize = nels*sizeof(cl_int);
-	//const size_t nwg_mem = nwg*sizeof(cl_int);
+	const size_t nwg_mem = nwg*sizeof(cl_int);
 
 	//if (nels & 3) ocl_check(CL_INVALID_VALUE, "nels not multiple of 4");
 	if (nwg != 1) ocl_check(CL_INVALID_VALUE, "nwg is not 1");
@@ -146,7 +146,15 @@ int main(int argc, char * argv[])
   int nquarts = nels/4;
 
   // riduco datasize a nwg elementi:
-  scan_evt[0] = scan1(scan1_k,que,d_v2,d_v1,nquarts,lws,nwg,init_evt);
+  scan_evt[0] = scan1(scan1_k,que,d_v2, d_tails, d_v1,nels,lws,nwg,init_evt);
+  if (nwg > 1)
+  {
+    scan_evt[1] = scan1(scan1_k, que, d_v2, NULL, d_tails, nwg, lws, nwg, scan_evt[0]);
+    // TODO FIXUP.
+  }
+  else
+    scan_evt[2] = scan_evt[0];
+  
 
   int *risultato = clEnqueueMapBuffer(que,d_v2,CL_TRUE,CL_MAP_READ,0,memsize,1,scan_evt,&read_evt,&err);
   err = clEnqueueReadBuffer(que, d_v2, CL_TRUE, 0, sizeof(risultato), &risultato,
@@ -165,21 +173,19 @@ int main(int argc, char * argv[])
 
 	{
 		const double runtime_pass_ms = runtime_ms(scan_evt[0]);
-		const double pass_bw_gbs = (memsize+memsize)/1.0e6/runtime_pass_ms;
+		const double pass_bw_gbs = (nwg_mem+nwg_mem)/1.0e6/runtime_pass_ms;
 		printf("reduce0 : %d float in %gms: %g GB/s %g GE/s\n",
 			nels, runtime_pass_ms, pass_bw_gbs,
 			nels/1.0e6/runtime_pass_ms);
 	}
-  /*
 	if (nwg > 1)
 	{
 		const double runtime_pass_ms = runtime_ms(scan_evt[1]);
-		const double pass_bw_gbs = (nwg_mem+sizeof(cl_int))/1.0e6/runtime_pass_ms;
+		const double pass_bw_gbs = (nwg_mem+memsize+memsize)/1.0e6/runtime_pass_ms;
 		printf("reduce1 : %d float in %gms: %g GB/s %g GE/s\n",
 			(lws*nwg), runtime_pass_ms, pass_bw_gbs,
 			(lws*nwg)/1.0e6/runtime_pass_ms);
 	}
-*/
 	const double runtime_reduction_ms = total_runtime_ms(scan_evt[0], scan_evt[1]);
 	printf("reduce : %d float in %gms: %g GE/s\n",
 		nels, runtime_reduction_ms, nels/1.0e6/runtime_reduction_ms);

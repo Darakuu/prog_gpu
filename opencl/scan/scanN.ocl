@@ -89,3 +89,9 @@ kernel void scanN(global int * restrict out, global int * restrict tails, global
     tails[get_group_id(0)] = corr;
 
 }
+
+/* Fixup the partial scans with the scanned tails */
+kernel void scanN_fixup(global int * restrict out, global const int * restrict tails, uint global_nels)
+{
+  if (get_group_id(0) == 0) return;
+}
