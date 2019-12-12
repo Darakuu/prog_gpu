@@ -1,8 +1,19 @@
+// a / b, rounding up.
+uint div_up(uint a, uint b) {return (a+b-1)/b}
+uint round_mul_up(uint a, uint b) {return div_up(a,b) * b;}
+
+
 kernel void vecinit(global float * out, int n)
 {
   const int i = get_global_id(0);
   if (i<n) out[i] = (i+1);
 }
+
+int scan_pass(int gi, int nels, global int * restrict out, global const int * restrict in, local int * restrict lmem)
+{
+
+}
+
 /*Single work group version: used to scan the tails of the partial scans*/
 kernel void scan1(global int * restrict out, global const int * restrict in, local int* restrict lmem, uint nels)
 {
@@ -46,8 +57,35 @@ kernel void scan1(global int * restrict out, global const int * restrict in, loc
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 }
+
+
 // Multi workgroup version
-kernel void scanN(global int * restrict out, global const int * restrict in, local int * restrict lmem, uint nels)
+kernel void scanN(global int * restrict out, global int * restrict tails, global const int * restrict in, 
+  local int * restrict lmem, uint global_nels)
 {
+  const uint num_groups = get_num_groups(0)
+  //const uint local_nels = global_nels / get_num_groups(0); // Rounding down
+  const uint local_nels = div_up(global_nels, get_num_groups(0));  // Rounding up, nels for a single wg
+  local_nels = round_mul_up(nels,lws) //Round up to the next multiple of lws
+  
+  const uint gws = get_global_size(0);
+  const uint lws = get_local_size(0);
+  const uint li = get_local_id(0);
+  
+  const uint begin = get_group_id(0) * local_nels;    // Bad starting value, not aligned
+  const uint end = min(begin+local_nels, global_nels);  // Must not go over global_nels.
+  const uint limit = round_mul_up(end, lws);
+
+  int corr = 0;
+
+  uint gi = begin + get_global_id(0);
+
+  while(gi<limit)
+  {
+    corr = scan_pass(gi, nels, out, in, lmem, corr);
+    gi+=lws;
+  }
+  if(get_local_id(0)==0)
+    tails[get_group_id(0)] = corr;
 
 }
