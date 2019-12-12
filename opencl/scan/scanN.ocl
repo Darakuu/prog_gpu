@@ -1,0 +1,53 @@
+kernel void vecinit(global float * out, int n)
+{
+  const int i = get_global_id(0);
+  if (i<n) out[i] = (i+1);
+}
+/*Single work group version: used to scan the tails of the partial scans*/
+kernel void scan1(global int * restrict out, global const int * restrict in, local int* restrict lmem, uint nels)
+{
+  const uint gws = get_global_size(0);
+  const uint lws = get_local_size(0);
+  const uint li = get_local_id(0);
+  uint gi = get_global_id(0);
+  int corr = 0;
+
+  uint limit = ((nels+lws-1)/lws)*lws;
+
+  // while (gi < nels) // questo ciclo è sbagliato, nel momento in cui il mio wg si trova a fare l'ultimo pezzo dei work item non finiranno.
+  while (gi < limit) 
+  {
+    int acc = (gi < nels ? in[gi] : 0);  // starting data is stored in the registers
+    
+    uint write_mask = ~1U;
+    uint read_mask = ~0U;
+
+    lmem[li] = acc;      //Data now in local memory, the others can read the contents. One element per work-item
+    while(write_mask < lws) // "srotolare sempre il while una/due volte"
+    {
+      barrier(CLK_LOCAL_MEM_FENCE);
+      if (li & write_mask)
+      {
+        acc+= lmem[(li & read_mask) -1];
+        lmem[li] = acc;
+      }
+      write_mask <<= 1;
+      read_mask <<= 1;
+    }
+    acc+=corr;
+    if (gi < nels) out[gi] = acc;
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    corr+=lmem[lws-1];
+    gi+= get_local_size(0);
+
+    // ensure that lmem[i] on the next cycle from the last work-item
+    // doesn't overwrite lmem[lws-1] before all other work-items have read it.
+    barrier(CLK_LOCAL_MEM_FENCE);
+  }
+}
+// Multi workgroup version
+kernel void scanN(global int * restrict out, global const int * restrict in, local int * restrict lmem, uint nels)
+{
+
+}
