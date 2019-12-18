@@ -1,7 +1,8 @@
-kernel void vecinit(global float * out, int n)
+kernel void vecinit(global int * out, int n)
 {
   const int i = get_global_id(0);
-  if (i<n) out[i] = (i+1);
+  if (i<n) 
+  out[i] = (i+1);
 }
 
 kernel void scan1(global int * restrict out, global const int * restrict in, local int* restrict lmem, uint nels)
@@ -19,7 +20,7 @@ kernel void scan1(global int * restrict out, global const int * restrict in, loc
   {
     int acc = (gi < nels ? in[gi] : 0);  // starting data is stored in the registers
     
-    uint write_mask = ~1U;
+    uint write_mask = 1U;
     uint read_mask = ~0U;
 
     lmem[li] = acc;      //Data now in local memory, the others can read the contents. One element per work-item
@@ -35,7 +36,8 @@ kernel void scan1(global int * restrict out, global const int * restrict in, loc
       read_mask <<= 1;
     }
     acc+=corr;
-    if (gi < nels) out[gi] = acc;
+    if (gi < nels) 
+      out[gi] = acc;
 
     barrier(CLK_LOCAL_MEM_FENCE);
     corr+=lmem[lws-1];

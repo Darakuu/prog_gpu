@@ -1,97 +1,136 @@
-// a / b, rounding up.
-uint div_up(uint a, uint b) {return (a+b-1)/b}
-uint round_mul_up(uint a, uint b) {return div_up(a,b) * b;}
+// a / b, rounding up
+uint div_up(uint a, uint b) {return (a + b - 1)/b;}
 
+// round a to the next multiple of b
+uint round_mul_up(uint a, uint b) {return div_up(a, b)*b;}
 
-kernel void vecinit(global float * out, int n)
+kernel void vecinit(global int *out, int n)
 {
-  const int i = get_global_id(0);
-  if (i<n) out[i] = (i+1);
+	const int i = get_global_id(0);
+	if (i < n)
+	out[i] = (i+1);
 }
 
-int scan_pass(int gi, int nels, global int * restrict out, global const int * restrict in, local int * restrict lmem)
+int scan_pass(int gi, int nels,
+	global int * restrict out,
+	global const int * restrict in,
+	local int * restrict lmem,
+	int corr)
 {
+	const uint li = get_local_id(0);
+	const uint lws = get_local_size(0);
+	int acc = (gi < nels ? in[gi] : 0);
 
-}
+	uint write_mask = 1U;
+	uint read_mask = ~0U;
 
-/*Single work group version: used to scan the tails of the partial scans*/
-kernel void scan1(global int * restrict out, global const int * restrict in, local int* restrict lmem, uint nels)
-{
-  const uint gws = get_global_size(0);
-  const uint lws = get_local_size(0);
-  const uint li = get_local_id(0);
-  uint gi = get_global_id(0);
-  int corr = 0;
-
-  uint limit = ((nels+lws-1)/lws)*lws;
-
-  // while (gi < nels) // questo ciclo è sbagliato, nel momento in cui il mio wg si trova a fare l'ultimo pezzo dei work item non finiranno.
-  while (gi < limit) 
+	lmem[li] = acc;
+	while (write_mask < lws) 
   {
-    int acc = (gi < nels ? in[gi] : 0);  // starting data is stored in the registers
-    
-    uint write_mask = ~1U;
-    uint read_mask = ~0U;
-
-    lmem[li] = acc;      //Data now in local memory, the others can read the contents. One element per work-item
-    while(write_mask < lws) // "srotolare sempre il while una/due volte"
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if (li & write_mask) 
     {
-      barrier(CLK_LOCAL_MEM_FENCE);
-      if (li & write_mask)
-      {
-        acc+= lmem[(li & read_mask) -1];
-        lmem[li] = acc;
-      }
-      write_mask <<= 1;
-      read_mask <<= 1;
-    }
-    acc+=corr;
-    if (gi < nels) out[gi] = acc;
+			acc += lmem[(li & read_mask) - 1];
+			lmem[li] = acc;
+		}
+		write_mask <<= 1;
+		read_mask <<= 1;
+	}
 
-    barrier(CLK_LOCAL_MEM_FENCE);
-    corr+=lmem[lws-1];
-    gi+= get_local_size(0);
+	acc += corr;
+	if (gi < nels)
+		out[gi] = acc;
 
-    // ensure that lmem[i] on the next cycle from the last work-item
-    // doesn't overwrite lmem[lws-1] before all other work-items have read it.
-    barrier(CLK_LOCAL_MEM_FENCE);
-  }
+	barrier(CLK_LOCAL_MEM_FENCE);
+	corr += lmem[lws - 1];
+
+	// ensure that lmem[i] on the next cycle
+	// from the last work-item does not
+	// overwrite lmem[lws-1] before all other
+	// work-item read it
+	barrier(CLK_LOCAL_MEM_FENCE);
+	return corr;
 }
 
-
-// Multi workgroup version
-kernel void scanN(global int * restrict out, global int * restrict tails, global const int * restrict in, 
-  local int * restrict lmem, uint global_nels)
+/* single-work-group version: used to scan the tails of the partial scans */
+kernel void scan1_lmem(global int * restrict out,
+	global const int * restrict in,
+	local int * restrict lmem, // one element per work-item
+	uint nels)
 {
-  const uint num_groups = get_num_groups(0)
-  //const uint local_nels = global_nels / get_num_groups(0); // Rounding down
-  const uint local_nels = div_up(global_nels, get_num_groups(0));  // Rounding up, nels for a single wg
-  local_nels = round_mul_up(nels,lws) //Round up to the next multiple of lws
-  
-  const uint gws = get_global_size(0);
-  const uint lws = get_local_size(0);
-  const uint li = get_local_id(0);
-  
-  const uint begin = get_group_id(0) * local_nels;    // Bad starting value, not aligned
-  const uint end = min(begin+local_nels, global_nels);  // Must not go over global_nels.
-  const uint limit = round_mul_up(end, lws);
+	const uint gws = get_global_size(0);
+	const uint lws = get_local_size(0);
+	const uint li = get_local_id(0);
 
-  int corr = 0;
+	const uint limit = round_mul_up(nels, lws);
 
-  uint gi = begin + get_global_id(0);
+	uint gi = get_global_id(0);
+	int corr = 0;
 
-  while(gi<limit)
+	while (gi < limit) 
   {
-    corr = scan_pass(gi, nels, out, in, lmem, corr);
-    gi+=lws;
-  }
-  if(get_local_id(0)==0)
-    tails[get_group_id(0)] = corr;
-
+		corr = scan_pass(gi, nels, out, in, lmem, corr);
+		gi += get_local_size(0);
+	}
 }
 
-/* Fixup the partial scans with the scanned tails */
-kernel void scanN_fixup(global int * restrict out, global const int * restrict tails, uint global_nels)
+/* multi-work-group version */
+kernel void scanN_lmem(global int * restrict out,
+	global int * restrict tails,
+	global const int * restrict in,
+	local int * restrict lmem, // one element per work-item
+	uint global_nels)
 {
-  if (get_group_id(0) == 0) return;
+	const uint lws = get_local_size(0);
+
+	// number of elements for the single work-group:
+	// start by dividing the total number of elements by the number of groups,
+	// rounding up
+	uint local_nels = div_up(global_nels, get_num_groups(0));
+	// round up to the next multiple of lws
+	local_nels = round_mul_up(local_nels, lws);
+
+	const uint begin = get_group_id(0)*local_nels;
+	const uint end = min(begin + local_nels, global_nels);
+	const uint limit = round_mul_up(end, lws);
+	int corr = 0;
+
+	uint gi = begin + get_local_id(0);
+	while (gi < limit) 
+  {
+		corr = scan_pass(gi, global_nels, out, in, lmem, corr);
+		gi += lws;
+	}
+
+	if (get_local_id(0) == 0)
+		tails[get_group_id(0)] = corr;
+}
+
+/* fixup the partial scans with the scanned tails */
+kernel void scanN_fixup(global int * restrict out,
+	global const int * restrict tails,
+	uint global_nels)
+{
+	if (get_group_id(0) == 0) return;
+
+	const uint lws = get_local_size(0);
+
+	// number of elements for the single work-group:
+	// start by dividing the total number of elements by the number of groups,
+	// rounding up
+	uint local_nels = div_up(global_nels, get_num_groups(0));
+	// round up to the next multiple of lws
+	local_nels = round_mul_up(local_nels, lws);
+
+	const uint begin = get_group_id(0)*local_nels;
+	const uint end = min(begin + local_nels, global_nels);
+	const int corr = tails[get_group_id(0)-1];
+
+	uint gi = begin + get_local_id(0);
+	while (gi < end) 
+  {
+		out[gi] += corr;
+		gi += lws;
+	}
+
 }
