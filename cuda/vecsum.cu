@@ -118,7 +118,9 @@ int main(int argc, char *argv[])
   err = cudaEventRecord(post_sum);
   cuda_check(err, "post_sum record");
 
-  int * h_vsum = (int*)malloc(memsize);
+  int * h_vsum;
+  err = cudaHostAlloc(&h_vsum, memsize, cudaHostAllocPortable); //DMA
+
 
   if (!h_vsum)
   {
@@ -157,8 +159,8 @@ int main(int argc, char *argv[])
   cudaEventDestroy(pre_copy);
   cudaEventDestroy(post_copy);
 
-
-  free(h_vsum);     h_vsum = NULL;
+  
+  cudaFreeHost(h_vsum);     h_vsum = NULL;
   cudaFree(d_vsum); d_vsum = NULL;
   cudaFree(d_v2);   d_v2 = NULL;
   cudaFree(d_v1);   d_v1 = NULL;
