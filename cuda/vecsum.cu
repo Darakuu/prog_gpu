@@ -150,12 +150,12 @@ int main(int argc, char *argv[])
   printf("sum: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, sum_time,3*memsize/sum_time/1.0e6, nels/sum_time/1.0e6);
   printf("copy: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
 
-  cudaEventDetroy(pre_init);
-  cudaEventDetroy(post_init);
-  cudaEventDetroy(pre_sum);
-  cudaEventDetroy(post_sum);
-  cudaEventDetroy(pre_copy);
-  cudaEventDetroy(post_copy);
+  cudaEventDestroy(pre_init);
+  cudaEventDestroy(post_init);
+  cudaEventDestroy(pre_sum);
+  cudaEventDestroy(post_sum);
+  cudaEventDestroy(pre_copy);
+  cudaEventDestroy(post_copy);
 
 
   free(h_vsum);     h_vsum = NULL;
