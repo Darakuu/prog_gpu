@@ -32,7 +32,7 @@ void vecinit(int * __restrict__ v1, int * __restrict__ v2, int nels)
 {
   // threadIdx is a int3 index (xyz). Local workitem index <=> get_local_id()
   // blockIdx is the workgroup's index in the launch grid. <=> get_group_id()
-  // blockDim is the workgroup dimensione                  <=> get_group_size()
+  // blockDim is the workgroup dimension                   <=> get_group_size()
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   v1[i] = i;
 	v2[i] = nels - i;
@@ -42,9 +42,9 @@ void vecinit(int * __restrict__ v1, int * __restrict__ v2, int nels)
 __global__
 void vecsum(int *__restrict__ vsum, const int *__restrict__ v1, const int *__restrict__ v2, int nels)
 {
-	const int i = get_global_id(0);
+	const int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if(i>=nels)  return;
+  if(i>=nels) return;
 
 	vsum[i] = v1[i] + v2[i];
 }
@@ -71,26 +71,53 @@ int main(int argc, char *argv[])
 
 	const int nels = atoi(argv[1]);
   
-  int d_v1 = NULL, d_v2 = NULL, d_vsum = NULL;
+  int *d_v1 = NULL, *d_v2 = NULL, *d_vsum = NULL;
 
   size_t memsize = nels*sizeof(*d_v1);
   
   cudaError_t err;
 
-  err = (int*)cudaMalloc(&d_v1, memsize); // cudaMalloc returns a device pointer
+  err = cudaMalloc(&d_v1, memsize); // cudaMalloc returns a device pointer
   cuda_check(err,"alloc v1");
-  err = (int*)cudaMalloc(&d_v2, memsize);
+  err = cudaMalloc(&d_v2, memsize);
   cuda_check(err,"alloc v2");
-  err = (int*)cudaMalloc(&d_vsum, memsize);
+  err = cudaMalloc(&d_vsum, memsize);
   cuda_check(err,"alloc vsum");
   
   int blockSize = 256;
   int numBlocks = (nels + blockSize - 1)/blockSize;
 
-  vecinit<<< blockSize, numBlocks >>>(d_v1,d_v2,nels);
-  
-  vecsum<<< blockSize, numBlocks >>>(d_vsum,d_v1,d_v2,nels);
-  
+  printf("%d blocchi di %d threads\n",numBlocks,blockSize);
+
+  cudaEvent_t pre_init, post_init;
+  cudaEvent_t pre_sum, post_sum;
+  cudaEvent_t pre_copy, post_copy;
+
+  err = cudaEventCreate(&pre_init, 0);
+  cuda_check(err, "pre_init event create");
+  err = cudaEventCreate(&post_init, 0);
+  cuda_check(err, "post_init event create");
+  err = cudaEventCreate(&pre_sum, 0);
+  cuda_check(err, "pre_sum event create");
+  err = cudaEventCreate(&post_sum, 0);
+  cuda_check(err, "post_sum event create");
+  err = cudaEventCreate(&pre_copy, 0);
+  cuda_check(err, "post_copy event create");
+  err = cudaEventCreate(&post_copy, 0);
+  cuda_check(err, "post_copy event create");
+
+  err = cudaEventRecord(pre_init);
+  cuda_check(err, "pre_init record");
+  vecinit<<< numBlocks, blockSize >>>(d_v1,d_v2,nels);
+  err = cudaEventRecord(post_init);
+  cuda_check(err, "post_init record");
+
+  err = cudaEventRecord(pre_sum);
+  cuda_check(err, "pre_sum record");
+  vecsum<<< numBlocks, blockSize >>>(d_vsum,d_v1,d_v2,nels);
+  err = cudaEventRecord(post_sum);
+  cuda_check(err, "post_sum record");
+
   int * h_vsum = (int*)malloc(memsize);
 
   if (!h_vsum)
@@ -99,10 +126,37 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
+  err = cudaEventRecord(pre_copy);
+  cuda_check(err, "pre_copy record");
   err = cudaMemcpy(h_vsum,d_vsum,memsize, cudaMemcpyDeviceToHost);
-  cuda_check(err "copy vsum");
+  cuda_check(err, "copy vsum");
+  err = cudaEventRecord(post_copy);
+  cuda_check(err, "post_copy record");
 
 	verify(h_vsum, nels);
+
+  cudaEventSynchronize(post_copy);
+  cuda_check(err, "sync post_copy");
+
+  float init_time, sum_time, copy_time;
+  err = cudaEventElapsedTime(&init_time, pre_init, post_init);  //in ms
+  cuda_check(err, "get init time");
+  err = cudaEventElapsedTime(&sum_time, pre_sum, post_sum);  //in ms
+  cuda_check(err, "get init time");
+  err = cudaEventElapsedTime(&copy_time, pre_copy, post_copy);  //in ms
+  cuda_check(err, "get init time");
+
+  printf("init: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, init_time,2*memsize/init_time/1.0e6, nels/init_time/1.0e6);
+  printf("sum: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, sum_time,3*memsize/sum_time/1.0e6, nels/sum_time/1.0e6);
+  printf("copy: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
+
+  cudaEventDetroy(pre_init);
+  cudaEventDetroy(post_init);
+  cudaEventDetroy(pre_sum);
+  cudaEventDetroy(post_sum);
+  cudaEventDetroy(pre_copy);
+  cudaEventDetroy(post_copy);
+
 
   free(h_vsum);     h_vsum = NULL;
   cudaFree(d_vsum); d_vsum = NULL;
