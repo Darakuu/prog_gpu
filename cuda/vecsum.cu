@@ -71,29 +71,41 @@ int main(int argc, char *argv[])
 
 	const int nels = atoi(argv[1]);
   
-  cl_mem v1 = NULL, v2 = NULL, vsum = NULL;
+  int d_v1 = NULL, d_v2 = NULL, d_vsum = NULL;
 
-  size_t memsize = nels*sizeof(*v1);
+  size_t memsize = nels*sizeof(*d_v1);
   
   cudaError_t err;
 
-  err = (int*)cudaMalloc(&v1, memsize); // cudaMalloc returns a device pointer
+  err = (int*)cudaMalloc(&d_v1, memsize); // cudaMalloc returns a device pointer
   cuda_check(err,"alloc v1");
-  err = (int*)cudaMalloc(&v2, memsize);
+  err = (int*)cudaMalloc(&d_v2, memsize);
   cuda_check(err,"alloc v2");
-  err = (int*)cudaMalloc(&vsum, memsize);
+  err = (int*)cudaMalloc(&d_vsum, memsize);
   cuda_check(err,"alloc vsum");
   
   int blockSize = 256;
   int numBlocks = (nels + blockSize - 1)/blockSize;
 
-  vecinit<<< blockSize, numBlocks >>>(v1,v2,nels);
+  vecinit<<< blockSize, numBlocks >>>(d_v1,d_v2,nels);
   
-  vecsum<<< blockSize, numBlocks >>>(vsum,v1,v2,nels);
-	
+  vecsum<<< blockSize, numBlocks >>>(d_vsum,d_v1,d_v2,nels);
+  
+  int * h_vsum = (int*)malloc(memsize);
+
+  if (!h_vsum)
+  {
+    fprintf(stderr, "out of memory on host!\n");
+    exit(1);
+  }
+
+  err = cudaMemcpy(h_vsum,d_vsum,memsize, cudaMemcpyDeviceToHost);
+  cuda_check(err "copy vsum");
+
 	verify(h_vsum, nels);
 
-  cudaFree(vsum); vsum = NULL;
-  cudaFree(v2);   v2 = NULL;
-  cudaFree(v1);   v1 = NULL;
+  free(h_vsum);     h_vsum = NULL;
+  cudaFree(d_vsum); d_vsum = NULL;
+  cudaFree(d_v2);   d_v2 = NULL;
+  cudaFree(d_v1);   d_v1 = NULL;
 }
