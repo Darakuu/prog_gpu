@@ -13,7 +13,7 @@ TARGETS+= $(DIR_IMG)transpose_img $(DIR_IMG)transpose_img4 $(DIR_IMG)imgcopy $(D
 TARGETS+= $(DIR_RED)reduce2 $(DIR_RED)reduce4 $(DIR_RED)reduce4by4 $(DIR_RED)reduce4_sat $(DIR_RED)reduce4_lmem 
 TARGETS+= $(DIR_SCN)scan1 $(DIR_SCN)scanN
 
-other: 	$(addsuffix .out,$(TARGETS))
-	rm -f $(TARGETS)
-all: $(TARGETS)	
+all: $(TARGETS)
 
+%: %.c
+	gcc $< -o $@.out $(LDFLAGS) $(LDLIBS)
