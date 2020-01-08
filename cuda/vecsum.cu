@@ -24,7 +24,7 @@ void cuda_check(cudaError_t err, const char *msg, ...) {
 __host__ __device__   // NVCC compiles this code for both device and host
 int4 operator+(int4 const & a, int4 const & b)
 {
-  return make_int(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
+  return make_int4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
 }
 
 __global__
@@ -148,9 +148,9 @@ int main(int argc, char *argv[])
   err = cudaEventElapsedTime(&copy_time, pre_copy, post_copy);  //in ms
   cuda_check(err, "get init time");
 
-  printf("init: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, init_time,2*memsize/init_time/1.0e6, nels/init_time/1.0e6);
-  printf("sum: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, sum_time,3*memsize/sum_time/1.0e6, nels/sum_time/1.0e6);
-  printf("copy: %d els in &6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
+  printf("init: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, init_time,2*memsize/init_time/1.0e6, nels/init_time/1.0e6);
+  printf("sum: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, sum_time,3*memsize/sum_time/1.0e6, nels/sum_time/1.0e6);
+  printf("copy: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
 
   cudaEventDestroy(pre_init);
   cudaEventDestroy(post_init);
