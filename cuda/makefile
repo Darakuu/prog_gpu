@@ -1,4 +1,4 @@
-TARGETS = vecsum
+TARGETS = vecsum scan
 
 CPPFLAGS = -g
 
