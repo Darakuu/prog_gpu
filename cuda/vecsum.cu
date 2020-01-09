@@ -8,8 +8,10 @@ using namespace std;
 
 #define BUFSIZE 4096
 
-void cuda_check(cudaError_t err, const char *msg, ...) {
-	if (err != cudaSuccess) {
+void cuda_check(cudaError_t err, const char *msg, ...) 
+{
+  if (err != cudaSuccess) 
+  {
 		char msg_buf[BUFSIZE + 1];
 		va_list ap;
 		va_start(ap, msg);
@@ -43,9 +45,7 @@ __global__
 void vecsum(int *__restrict__ vsum, const int *__restrict__ v1, const int *__restrict__ v2, int nels)
 {
 	const int i = blockIdx.x * blockDim.x + threadIdx.x;
-
   if(i>=nels) return;
-
 	vsum[i] = v1[i] + v2[i];
 }
 
@@ -54,20 +54,14 @@ void verify(const int *vsum, int nels)
 {
 	for (int i = 0; i < nels; ++i) 
 		if (vsum[i] != nels) 
-		{
-			fprintf(stderr, "mismatch @ %d : %d != %d\n", i, vsum[i], nels);
-			exit(3);
-		}
+			fprintf(stderr, "mismatch @ %d : %d != %d\n", i, vsum[i], nels), exit(3);
 }
 
 
 int main(int argc, char *argv[])
 {
-	if (argc <= 1) 
-	{
-		fprintf(stderr, "specify number of elements\n");
-		exit(1);
-	}
+	if (argc <= 1)
+		fprintf(stderr, "specify number of elements\n"), exit(1);
 
 	const int nels = atoi(argv[1]);
   
@@ -123,10 +117,7 @@ int main(int argc, char *argv[])
 
 
   if (!h_vsum)
-  {
-    fprintf(stderr, "out of memory on host!\n");
-    exit(1);
-  }
+    fprintf(stderr, "out of memory on host!\n"), exit(1);
 
   err = cudaEventRecord(pre_copy);
   cuda_check(err, "pre_copy record");
@@ -149,7 +140,7 @@ int main(int argc, char *argv[])
   cuda_check(err, "get init time");
 
   printf("init: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, init_time,2*memsize/init_time/1.0e6, nels/init_time/1.0e6);
-  printf("sum: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, sum_time,3*memsize/sum_time/1.0e6, nels/sum_time/1.0e6);
+  printf("sum:  %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, sum_time,3*memsize/sum_time/1.0e6, nels/sum_time/1.0e6);
   printf("copy: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
 
   cudaEventDestroy(pre_init);
