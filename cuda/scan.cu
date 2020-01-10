@@ -40,25 +40,21 @@ __host__ __device__
 uint round_mul_up(uint a, uint b) {return div_up(a, b)*b;}
 
 __device__
-get_global_id()
-{
-  return blockIdx.x * blockDim.x + threadIdx.x;
-}
+int get_global_id() {return blockIdx.x * blockDim.x + threadIdx.x;}
 
 __global__
 void vecinit(int *out, int n)
 {
 	const int i = get_global_id();
-	if (i < n)
-	out[i] = (i+1);
+	if (i < n) out[i] = (i+1);
 }
 
 __device__
 int scan_pass(int gi, int nels,
 	 int * __restrict__ out,
 	 const int * __restrict__ in,
-	 __shared__ int * __restrict__ lmem,  // shared = local
-	int corr)
+	 int * __restrict__ lmem,
+	 int corr)
 {
 	const uint li = threadIdx.x;
 	const uint lws = blockDim.x;
@@ -93,7 +89,7 @@ int scan_pass(int gi, int nels,
 	return corr;
 }
 
-__shared__ int lmem;
+extern __shared__ int lmem[];
 
 /* single-work-group version: used to scan the tails of the partial scans */
 __global__
@@ -101,10 +97,8 @@ void scan1_lmem(int * __restrict__ out,
 	const int * __restrict__ in,
 	uint nels)
 {
-	const uint gws = blockDim.x*gridDim.x;
 	const uint lws = blockDim.x;
-	const uint li = threadIdx.x;
-
+	
 	const uint limit = round_mul_up(nels, lws);
 
 	uint gi = get_global_id();
@@ -202,11 +196,9 @@ int main(int argc, char *argv[])
   const size_t memsize = nels*sizeof(int);
   const size_t nwg_mem = nwg*sizeof(int);
  
-  if (lws & (lws-1)) cuda_check(CUDA_ERROR_INVALID_VALUE, "lws");
+  if (lws & (lws-1)) cuda_check(cudaErrorInvalidValue, "lws"); // this should be invalid value, not invalid device(!!!)
   
   int *d_v1 = NULL, *d_v2 = NULL, *d_tails = NULL;
-
-  size_t memsize = nels*sizeof(*d_v1);
   
   cudaError_t err;
 
@@ -216,12 +208,10 @@ int main(int argc, char *argv[])
   cuda_check(err,"alloc v2");
   err = cudaMalloc(&d_tails, nwg_mem);
   cuda_check(err,"alloc vsum");
-  
-  const int blockSize = lws;
 
   cudaEvent_t pre_init, post_init;
   cudaEvent_t pre_scan1, post_scan1;
-  cudaEvent_t pre_tails, post_tails;
+  cudaEvent_t pre_scan_tails, post_scan_tails;
   cudaEvent_t pre_fixup, post_fixup;
   cudaEvent_t pre_copy, post_copy;
 
@@ -275,17 +265,14 @@ int main(int argc, char *argv[])
 
     err = cudaEventRecord(pre_fixup);
     cuda_check(err, "record pre_fixup");
-    scanN_fixup(int) >>>(d_v2, d_tails, nels);
+    scanN_fixup<<< nwg, lws >>>(d_v2, d_tails, nels);
     err = cudaEventRecord(post_fixup);
     cuda_check(err, "record post_fixup");
   }
 
   int * h_v2;
   err = cudaHostAlloc(&h_v2, memsize, cudaHostAllocPortable); //DMA
-
-
-  if (!h_v2)
-    fprintf(stderr, "out of memory on host!\n"), exit(1);
+  cuda_check(err, "host alloc");
 
   err = cudaEventRecord(pre_copy);
   cuda_check(err, "pre_copy record");
@@ -303,28 +290,29 @@ int main(int argc, char *argv[])
   float scan_time_total;
   err = cudaEventElapsedTime(&init_time, pre_init, post_init);  //in ms
   cuda_check(err, "get init time");
-  err = cudaEventElapsedTime(&sum_time, pre_sum, post_sum);  //in ms
-  cuda_check(err, "get init time");
+  err = cudaEventElapsedTime(&scan1_time, pre_scan1, post_scan1);  //in ms
+  cuda_check(err, "get scan1 time");
   if (nwg > 1)
   {
-    err = ;
+    err = cudaEventElapsedTime(&scan_tails_time, pre_scan_tails, post_scan_tails);  //in ms
+    cuda_check(err, "get scan tails time");
+    err = cudaEventElapsedTime(&fixup_time, pre_fixup, post_fixup);  //in ms
+    cuda_check(err, "get fixup time");
   }
-  err = cudaEventElapsedTime(&scan_time_total, prescan1, nwg > 1 ? post_fixup : )
   err = cudaEventElapsedTime(&copy_time, pre_copy, post_copy);  //in ms
-  cuda_check(err, "get init time");
+  cuda_check(err, "get copy time");
+  err = cudaEventElapsedTime(&scan_time_total, pre_scan1, nwg > 1 ? post_fixup : post_scan1);
+  cuda_check(err, "get scan time total");
 
-  printf("init: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, init_time,2*memsize/init_time/1.0e6, nels/init_time/1.0e6);
+  printf("init: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, init_time, memsize/init_time/1.0e6, nels/init_time/1.0e6);
   printf("scan0:  %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, scan1_time,2*memsize/scan1_time/1.0e6, nels/scan1_time/1.0e6);
   if(nwg>1)
   {
-    printf("scan_tails:  %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nwg, scan_tails_time,2*nwg_mem/scan_tails_time/1.0e6, nwg/scan_tails_time/1.0e6);
-    printf("fixup:  %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, fixup_time,2*memsize - lws*sizeof(int)/fixup_time/1.0e6, nels/fixup_time/1.0e6);
+    printf("scan tails:  %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nwg, scan_tails_time,2*nwg_mem/scan_tails_time/1.0e6, nwg/scan_tails_time/1.0e6);
+    printf("scan fixup:  %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, fixup_time,2*(memsize - lws*sizeof(int))/fixup_time/1.0e6, nels/fixup_time/1.0e6);
   }
   printf("copy: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
-
-  printf("scan_total: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, copy_time,memsize/copy_time/1.0e6, nels/copy_time/1.0e6);
-
-
+  printf("scan total: %d els in %6.4gms: %6.4gGB/s, %6.4gGE/s\n", nels, scan_time_total,memsize/scan_time_total/1.0e6, nels/scan_time_total/1.0e6);
 
   cudaEventDestroy(pre_init);
   cudaEventDestroy(post_init);
@@ -339,7 +327,7 @@ int main(int argc, char *argv[])
 
   
   cudaFreeHost(h_v2);     h_v2 = NULL;
-  cudaFree(d_vsum); d_vsum = NULL;
   cudaFree(d_v2);   d_v2 = NULL;
+  cudaFree(d_tails); d_tails = NULL;
   cudaFree(d_v1);   d_v1 = NULL;
 }
