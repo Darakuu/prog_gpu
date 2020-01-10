@@ -4,9 +4,9 @@
 #include <stdarg.h>
 #include <cuda_runtime_api.h>
 
-using namespace std;
-
 #define BUFSIZE 4096
+
+using namespace std;
 
 void cuda_check(cudaError_t err, const char *msg, ...) 
 {
