@@ -89,7 +89,9 @@ int scan_pass(int gi, int nels,
 	return corr;
 }
 
-extern __shared__ int lmem[];
+// for the time being, this has to be an extern, static int array.
+// it will cause an illegal access runtime error if it is not declared as extern.
+extern __shared__ int lmem[];	
 
 /* single-work-group version: used to scan the tails of the partial scans */
 __global__
