@@ -170,7 +170,6 @@ void scanN_fixup(int * __restrict__ out,
 		out[gi] += corr;
 		gi += lws;
 	}
-
 }
 
 void verify(const int *vsum, int nels)
@@ -325,7 +324,6 @@ int main(int argc, char *argv[])
   cudaEventDestroy(pre_copy);
   cudaEventDestroy(post_copy);
 
-  
   cudaFreeHost(h_v2);     h_v2 = NULL;
   cudaFree(d_v2);   d_v2 = NULL;
   cudaFree(d_tails); d_tails = NULL;
