@@ -49,6 +49,9 @@ void vecinit(int *out, int n)
 	if (i < n) out[i] = (i+1);
 }
 
+// CUDA Shared Memory
+extern __shared__ int lmem[];
+
 __device__
 int scan_pass(int gi, int nels,
 	 int * __restrict__ out,
@@ -88,10 +91,6 @@ int scan_pass(int gi, int nels,
 	__syncthreads();
 	return corr;
 }
-
-// for the time being, this has to be an extern, static int array.
-// it will cause an illegal access runtime error if it is not declared as extern.
-extern __shared__ int lmem[];	
 
 /* single-work-group version: used to scan the tails of the partial scans */
 __global__
