@@ -30,7 +30,7 @@ int4 operator+(int4 const & a, int4 const & b)
 }
 
 __host__ __device__   // NVCC compiles this code for both device and host
-void operator+=(int4 const & a, int b)
+void operator+=(int4 & a, int b)
 {
   a.x += b;
   a.y += b;
@@ -341,7 +341,7 @@ int main(int argc, char *argv[])
 
     err = cudaEventRecord(pre_fixup);
     cuda_check(err, "record pre_fixup");
-    scanN_fixup<<< nwg, lws >>>((int4*)d_v2, d_tails, nels);
+    scanN_fixup<<< nwg, lws >>>((int4*)d_v2, d_tails, nquarts);
     err = cudaEventRecord(post_fixup);
     cuda_check(err, "record post_fixup");
   }
