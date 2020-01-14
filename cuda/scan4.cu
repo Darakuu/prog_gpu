@@ -29,6 +29,15 @@ int4 operator+(int4 const & a, int4 const & b)
   return make_int4(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w);
 }
 
+__host__ __device__   // NVCC compiles this code for both device and host
+void operator+=(int4 const & a, int b)
+{
+  a.x += b;
+  a.y += b;
+  a.z += b;
+  a.w += b;
+}
+
 typedef unsigned int uint;
 
 // a / b, rounding up
@@ -52,6 +61,7 @@ void vecinit(int *out, int n)
 // CUDA Shared Memory
 extern __shared__ int lmem[];
 
+// scan that accesses global memory directly
 __device__
 int scan_pass(int gi, int nels,
 	 int * __restrict__ out,
@@ -87,6 +97,54 @@ int scan_pass(int gi, int nels,
 	corr += lmem[lws - 1];
 
 	// ensure that lmem[i] on the next cycle from the last work-item does not
+	// overwrite lmem[lws-1] before all other work-item read it
+	__syncthreads();
+	return corr;
+}
+
+// scan pass in which we pass the values that need to be scanned
+__device__
+int scan_pass(int gi, int global_nquarts, 
+    int4 * __restrict__ out, 
+    int4 &q, 
+    int * __restrict__ lmem, 
+    int corr)
+{
+	const uint li = threadIdx.x;
+	const uint lws = blockDim.x;
+	int acc = (gi < nels ? in[gi] : 0);
+
+	uint write_mask = 1U;
+	uint read_mask = ~0U;
+
+	lmem[li] = acc;
+	while (write_mask < lws) 
+  {
+		__syncthreads();
+		if (li & write_mask) 
+    {
+			acc += lmem[(li & read_mask) - 1];
+			lmem[li] = acc;
+		}
+		write_mask <<= 1;
+		read_mask <<= 1;
+	}
+
+  // complete work-group scan
+  __syncthreads();
+  if (li > 0)
+    q += lmem[li-1];
+  
+  // sliding window correction
+  q+= corr;
+
+	if (gi < global_nquarts)
+		out[gi] = q;
+
+	corr += lmem[lws - 1];
+
+  // ensure that lmem[i] on the next cycle
+  // from the last work-item does not
 	// overwrite lmem[lws-1] before all other work-item read it
 	__syncthreads();
 	return corr;
@@ -143,7 +201,16 @@ void scan4_lmem(int4 * __restrict__ out,
     q.y += q.x;
     q.z += q.y;
     q.w += q.z;
-		corr = scan_pass(gi, global_nquarts, out, in, lmem, corr);
+
+/*  // exploit instruction level parameters (ILP).
+    // If the hardware allows it, these are not 4 sums but 2 parallelized sums.
+    q.y += q.x
+    q.w += q.z // these 2 are indipendent sums
+    q.z += q.y
+    q.w += q.y // idem
+*/
+
+		corr = scan_pass(gi, global_nquarts, out, q, lmem, corr);
 		gi += lws;
 	}
 
@@ -153,9 +220,9 @@ void scan4_lmem(int4 * __restrict__ out,
 
 /* fixup the partial scans with the scanned tails */
 __global__
-void scanN_fixup(int * __restrict__ out,
+void scanN_fixup(int4 * __restrict__ out,
 	const int * __restrict__ tails,
-	uint global_nels)
+	uint global_nquarts)
 {
 	if (blockIdx.x == 0) return;
 
@@ -164,12 +231,12 @@ void scanN_fixup(int * __restrict__ out,
 	// number of elements for the single work-group:
 	// start by dividing the total number of elements by the number of groups,
 	// rounding up
-	uint local_nels = div_up(global_nels, gridDim.x);
+	uint local_nquarts = div_up(global_nquarts, gridDim.x);
 	// round up to the next multiple of lws
-	local_nels = round_mul_up(local_nels, lws);
+	local_nquarts = round_mul_up(local_nquarts, lws);
 
-	const uint begin = blockIdx.x*local_nels;
-	const uint end = min(begin + local_nels, global_nels);
+	const uint begin = blockIdx.x*local_nquarts;
+	const uint end = min(begin + local_nquarts, global_nquarts);
 	const int corr = tails[blockIdx.x-1];
 
 	uint gi = begin + threadIdx.x;
@@ -203,6 +270,7 @@ int main(int argc, char *argv[])
   const size_t memsize = nels*sizeof(int);
   const size_t nwg_mem = nwg*sizeof(int);
  
+  if (nels & 3) cuda_check(cudaErrorInvalidValue, "nels must be multiple of 4");
   if (lws & (lws-1)) cuda_check(cudaErrorInvalidValue, "lws"); // this should be invalid value, not invalid device(!!!)
   
   int *d_v1 = NULL, *d_v2 = NULL, *d_tails = NULL;
@@ -253,10 +321,11 @@ int main(int argc, char *argv[])
   err = cudaEventRecord(post_init);
   cuda_check(err, "post_init record");
 
+  int nquarts = nels/4;
   err = cudaEventRecord(pre_scan1);
   cuda_check(err, "pre_scan1 record");
   if (nwg>1)
-    scanN_lmem<<< nwg, lws, lws*sizeof(int) >>>(d_v2, d_tails, d_v1, nels);
+    scanN_lmem<<< nwg, lws, lws*sizeof(int) >>>((int4*)d_v2, d_tails, (int4*)d_v1, nels);
   else
     scan1_lmem<<< 1, lws,lws*sizeof(int) >>>(d_v2, d_v1, nels);
   err = cudaEventRecord(post_scan1);
@@ -272,7 +341,7 @@ int main(int argc, char *argv[])
 
     err = cudaEventRecord(pre_fixup);
     cuda_check(err, "record pre_fixup");
-    scanN_fixup<<< nwg, lws >>>(d_v2, d_tails, nels);
+    scanN_fixup<<< nwg, lws >>>((int4*)d_v2, d_tails, nels);
     err = cudaEventRecord(post_fixup);
     cuda_check(err, "record post_fixup");
   }
