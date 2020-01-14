@@ -38,6 +38,12 @@ void operator+=(int4 & a, int b)
   a.w += b;
 }
 
+__device__
+void microscan(int4 &q)
+{
+
+}
+
 typedef unsigned int uint;
 
 // a / b, rounding up
@@ -160,13 +166,30 @@ void scan1_lmem(int * __restrict__ out,
 	
 	const uint limit = round_mul_up(nels, lws);
 
-	uint gi = get_global_id();
-	int corr = 0;
-
-	while (gi < limit) 
+  uint gi = get_global_id();
+  
+	while (gi < limit) // 4x4 loop
   {
-		corr = scan_pass(gi, nels, out, in, lmem, corr);
-		gi += lws;
+    int g0 = gi + 0*lws;
+    int g1 = gi + 1*lws;
+    int g2 = gi + 2*lws;
+    int g3 = gi + 3*lws;
+    int4 q0 = q0 < global_nquarts ? in[g0] : make_int4(0,0,0,0);
+    int4 q1 = q1 < global_nquarts ? in[g1] : make_int4(0,0,0,0);
+    int4 q2 = q2 < global_nquarts ? in[g2] : make_int4(0,0,0,0);
+    int4 q3 = q3 < global_nquarts ? in[g3] : make_int4(0,0,0,0);
+
+    microscan(q0);
+    microscan(q1);
+    microscan(q2);
+    microscan(q3);
+
+    corr = scan_pass(g0, nels, out, q0, lmem, corr);
+    corr = scan_pass(g1, nels, out, q1, lmem, corr);
+    corr = scan_pass(g2, nels, out, q2, lmem, corr);
+    corr = scan_pass(g3, nels, out, q3, lmem, corr);
+    
+    gi += 4*lws;
 	}
 }
 
