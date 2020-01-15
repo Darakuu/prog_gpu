@@ -41,7 +41,9 @@ void operator+=(int4 & a, int b)
 __device__
 void microscan(int4 &q)
 {
-
+  q.y += q.x;
+  q.z += q.y;
+  q.w += q.z;
 }
 
 typedef unsigned int uint;
@@ -118,7 +120,7 @@ int scan_pass(int gi, int global_nquarts,
 {
 	const uint li = threadIdx.x;
 	const uint lws = blockDim.x;
-	int acc = (gi < nels ? in[gi] : 0);
+	int acc = q.w;
 
 	uint write_mask = 1U;
 	uint read_mask = ~0U;
@@ -163,33 +165,14 @@ void scan1_lmem(int * __restrict__ out,
 	uint nels)
 {
 	const uint lws = blockDim.x;
-	
 	const uint limit = round_mul_up(nels, lws);
-
   uint gi = get_global_id();
+  int corr = 0;
   
 	while (gi < limit) // 4x4 loop
   {
-    int g0 = gi + 0*lws;
-    int g1 = gi + 1*lws;
-    int g2 = gi + 2*lws;
-    int g3 = gi + 3*lws;
-    int4 q0 = q0 < global_nquarts ? in[g0] : make_int4(0,0,0,0);
-    int4 q1 = q1 < global_nquarts ? in[g1] : make_int4(0,0,0,0);
-    int4 q2 = q2 < global_nquarts ? in[g2] : make_int4(0,0,0,0);
-    int4 q3 = q3 < global_nquarts ? in[g3] : make_int4(0,0,0,0);
-
-    microscan(q0);
-    microscan(q1);
-    microscan(q2);
-    microscan(q3);
-
-    corr = scan_pass(g0, nels, out, q0, lmem, corr);
-    corr = scan_pass(g1, nels, out, q1, lmem, corr);
-    corr = scan_pass(g2, nels, out, q2, lmem, corr);
-    corr = scan_pass(g3, nels, out, q3, lmem, corr);
-    
-    gi += 4*lws;
+    corr = scan_pass(gi,nels,out,in,lmem,corr);
+    gi += lws;
 	}
 }
 
@@ -220,21 +203,35 @@ void scan4_lmem(int4 * __restrict__ out,
 	uint gi = begin + threadIdx.x;
 	while (gi < limit)
   {
-    int4 q = gi < global_nels ? in[gi] : make_int4(0,0,0,0);
-    q.y += q.x;
-    q.z += q.y;
-    q.w += q.z;
+    int g0 = gi + 0*lws;
+    int g1 = gi + 1*lws;
+    int g2 = gi + 2*lws;
+    int g3 = gi + 3*lws;
 
-/*  // exploit instruction level parameters (ILP).
-    // If the hardware allows it, these are not 4 sums but 2 parallelized sums.
+    int4 q0 = g0 < global_nquarts ? in[g0] : make_int4(0,0,0,0);
+    int4 q1 = g1 < global_nquarts ? in[g1] : make_int4(0,0,0,0);
+    int4 q2 = g2 < global_nquarts ? in[g2] : make_int4(0,0,0,0);
+    int4 q3 = g3 < global_nquarts ? in[g3] : make_int4(0,0,0,0);
+
+    microscan(q0);
+    microscan(q1);
+    microscan(q2);
+    microscan(q3);
+
+    corr = scan_pass(g0, global_nquarts, out, q0, lmem, corr);
+    corr = scan_pass(g1, global_nquarts, out, q1, lmem, corr);
+    corr = scan_pass(g2, global_nquarts, out, q2, lmem, corr);
+    corr = scan_pass(g3, global_nquarts, out, q3, lmem, corr);
+    
+    gi += 4*lws;
+    /*  
+    ALTERNATIVE: exploit instruction level parameters (ILP).
+    If the hardware allows it, these are not 4 sums but 2 parallelized sums.
     q.y += q.x
     q.w += q.z // these 2 are indipendent sums
     q.z += q.y
     q.w += q.y // idem
-*/
-
-		corr = scan_pass(gi, global_nquarts, out, q, lmem, corr);
-		gi += lws;
+    */
 	}
 
 	if (threadIdx.x == 0)
@@ -348,7 +345,7 @@ int main(int argc, char *argv[])
   err = cudaEventRecord(pre_scan1);
   cuda_check(err, "pre_scan1 record");
   if (nwg>1)
-    scanN_lmem<<< nwg, lws, lws*sizeof(int) >>>((int4*)d_v2, d_tails, (int4*)d_v1, nels);
+    scan4_lmem<<< nwg, lws, lws*sizeof(int) >>>((int4*)d_v2, d_tails, (int4*)d_v1, nquarts);
   else
     scan1_lmem<<< 1, lws,lws*sizeof(int) >>>(d_v2, d_v1, nels);
   err = cudaEventRecord(post_scan1);
