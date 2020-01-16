@@ -6,6 +6,8 @@
 
 #define BUFSIZE 4096
 
+typedef unsigned int uint;
+
 using namespace std;
 
 void cuda_check(cudaError_t err, const char *msg, ...) 
@@ -45,8 +47,6 @@ void microscan(int4 &q)
   q.z += q.y;
   q.w += q.z;
 }
-
-typedef unsigned int uint;
 
 // a / b, rounding up
 __host__ __device__
@@ -204,7 +204,8 @@ void scan4_lmem(int4 * __restrict__ out,
 	while (gi < limit)
   {
     int g0 = gi + 0*lws;
-    int g1 = gi + 1*lws;
+    int g1 = gi + 1*lws;upload
+    upload
     int g2 = gi + 2*lws;
     int g3 = gi + 3*lws;
 
@@ -331,7 +332,7 @@ int main(int argc, char *argv[])
   cuda_check(err, "post_fixup event create");
 
   err = cudaEventCreate(&pre_copy, 0);
-  cuda_check(err, "post_copy event create");
+  cuda_check(err, "pre_copy event create");
   err = cudaEventCreate(&post_copy, 0);
   cuda_check(err, "post_copy event create");
 

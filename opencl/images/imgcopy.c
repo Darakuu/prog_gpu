@@ -29,7 +29,8 @@ cl_event imgcopy(cl_kernel imgcopy_k, cl_command_queue que,
 
 int main(int argc, char *argv[])
 {
-	if (argc <= 1) {
+	if (argc <= 1) 
+	{
 		fprintf(stderr, "specify name of file\n");
 		exit(1);
 	}
@@ -58,10 +59,8 @@ int main(int argc, char *argv[])
   }
   dst = src; // THIS COPIES &data AS WELL
   dst.data = NULL;
-
-  
-  
-  cl_platform_id plat_id = select_platform();
+	
+	cl_platform_id plat_id = select_platform();
 	cl_device_id dev_id = select_device(plat_id);
 	cl_context ctx = create_context(plat_id, dev_id);
 	cl_command_queue que = create_queue(ctx, dev_id);
