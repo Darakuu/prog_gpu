@@ -62,7 +62,7 @@ void verify(const int *vsum, int nels)
 texture<uchar4, 2,cudaReadModeNormalizedFloat> tex;
 
 __global__
-void imgcopy(uchar4 * out, int width, int height)
+void imgcopy(uchar4 * out, int width, int height, int output_pitch_el)
 {
   int row = blockDim.y*blockIdx.y + threadIdx.y;
   int col = blockDim.x*blockIdx.x + threadIdx.x;
@@ -70,7 +70,7 @@ void imgcopy(uchar4 * out, int width, int height)
   if (row < height && col < width)
   {
     float4 px = tex20(tex, col, row);
-    out[row*width+col] = make_uchar4(px.x*255, px.y*255, px.z*255, px.w*255);
+    out[row*output_pitch_el+col] = make_uchar4(px.x*255, px.y*255, px.z*255, px.w*255);
   }
 }
 
@@ -113,9 +113,19 @@ int main(int argc, char *argv[])
     dst.data = NULL;
 
     cudaArray_t d_input;
+    uchar4 *d_output;
+    size_t src_pitch = src.data_size/src.height;
+    size_t output_pitch;
+    int output_pitch_el;
+
     err = cudaMallocArray(&d_input, &tex.channelDesc, src.width, src.height);
-    cuda_check(err, "alloc d_input")
-    err = cudaMalloc(&d_output, dst.data_size);
+    cuda_check(err, "alloc d_input");
+    err = cudaMallocPitch(&d_output, &output_pitch, dst_pitch, dst_height);
+    cuda_check(err, "alloc d_output");
+
+    prtinf("pitch: %zu -> %zu\n", src_pitch, output_pitch);
+    output_pitch_el = output_pitch/sizeof(uchar4);
+
     dim3 blockSize;
     blockSize.x = blockSize.y = 16;
     blockSize.z = 1;
@@ -130,7 +140,7 @@ int main(int argc, char *argv[])
     
     err = cudaEventCreate(&pre_upload, 0);
     cuda_check(err, "pre_upload event create");
-    cudaMemcpyToArray(d_input, 0, 0, src.data, src.data_size, cudaMemcpyHostToDevice);
+    cudaMemcpy2DToArray(d_input, 0, 0, src.data, src_pitch, src_pitch, src.height, cudaMemcpyHostToDevice);
     err = cudaEventCreate(&post_upload, 0);
     cuda_check(err, "post_upload event create");
 
@@ -139,7 +149,7 @@ int main(int argc, char *argv[])
 
     err = cudaEventCreate(&pre_copy, 0);
     cuda_check(err, "pre_copy event create");
-    imgcopy<<< numBlocks, blockSize>>>(d_input, 0, 0, src.data, src.data_size, cudaMemcpyHostToDevice);
+    imgcopy<<< numBlocks, blockSize>>>(d_output, src.width, , cudaMemcpyHostToDevice);  // TODO
     err = cudaEventCreate(&post_copy, 0);
     cuda_check(err, "post_copy event create");
     
@@ -148,7 +158,7 @@ int main(int argc, char *argv[])
 
     err = cudaEventCreate(&pre_download, 0);
     cuda_check(err, "pre_download event create");
-    cudaMemcpy(&dst.data, 0, 0, dst.data, dst.data_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy2D(dst.data, dst_pitch, d_output, output_pitch, dst_pitch/*width in byte*/, dst_height, cudaMemcpyDeviceToHost);
     err = cudaEventCreate(&post_download, 0);
     cuda_check(err, "post_download event create");
 
