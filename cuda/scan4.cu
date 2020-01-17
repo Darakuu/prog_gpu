@@ -204,8 +204,7 @@ void scan4_lmem(int4 * __restrict__ out,
 	while (gi < limit)
   {
     int g0 = gi + 0*lws;
-    int g1 = gi + 1*lws;upload
-    upload
+    int g1 = gi + 1*lws;
     int g2 = gi + 2*lws;
     int g3 = gi + 3*lws;
 
